@@ -1,0 +1,5 @@
+/venv
+/.eggs
+/.pytest_cache
+/contract_patterns.egg-info
+__pycache__
