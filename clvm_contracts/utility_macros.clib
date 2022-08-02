@@ -1,0 +1,31 @@
+(
+  (defmacro assert items
+      (if (r items)
+          (list if (f items) (c assert (r items)) (q . (x)))
+          (f items)
+      )
+  )
+
+  (defmacro and ARGS
+   (if ARGS
+       (qq (if (unquote (f ARGS))
+           (unquote (c and (r ARGS)))
+           ()
+           ))
+       1)
+   )
+
+   (defmacro or args
+        (if args
+            (qq (if (unquote (f args))
+                    1
+                    (unquote (c or (r args)))))
+            0))
+
+   (defun merge_lists (L1 L2)
+       (if L1
+           (c (f L1) (merge_lists (r L1) L2))
+           L2
+       )
+   )
+)
