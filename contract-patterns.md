@@ -197,7 +197,82 @@ So the inner puzzle might return `((CREATE_COIN 0x5555...5 100))` and the bottom
 
 The driver should require that `CREATE_COIN` conditions that come out of the inner puzzle be atoms to prevent HSM shenanigans, as a simplified HSM might just work with inner puzzles and the conditions that come out, and be confused by a tree after `CREATE_COIN`.
 
+# Common Puzzle "Tricks"
 
+Many validation puzzles use the same types of "tricks" to secure their rulesets from being cheated. We can look at a few examples:
+
+## Proving a "launcher" puzzle
+
+It's very common for a validator to want to verify that it came into existence in some specific way. For example, a singleton wants to prove that it was the only coin created from a specific ancestor so it can use that ancestor's ID as a provably unique ID for itself. Often this is done in the form of a "lineage proof". A lineage proof is usually a proof that either your parent had the same validation logic as you, OR that it was a coin with some puzzle that you trust to initiate your lineage of coins correctly. If you know that if your parent has the same validation logic as you, you know that it checked its parent and so on until you reach the "launcher" ancestor.
+
+## Validator virality
+
+In most scenarios, a validator would like its children to follow the same ruleset that it is currently enforcing. For example, a CAT or fungible token is in charge of enforcing that the current supply of itself remains consistent. It therefore needs to know that its children are also the same type of token and that their amounts add up to the current amount plus or minus a legal discrepancy. In a morphing pattern, the puzzle hash in CREATE_COINs is forcibly curried into a module of the same type as the validator. In a validation-only pattern, you would require proof that the puzzle hash in the CREATE_COIN contains the CAT validator.
+
+One important difference between the morphing and validation-only patterns here is the address that the inner puzzle sends to. A stack of morphers means that the inner puzzle just makes its CREATE_COINs to another inner puzzle's hash and the morphers take care of the rest. A stack of validators means that the inner puzzle hashes in the CREATE_COINs never undergo any modification and must therefore be the hash of the full puzzle that includes the VMP and any of its validators.
+
+### Melting
+
+Although validators usually intend for all of their children to follow the same ruleset it has, there is often use for ending the propagation of the validator which we call "melting". Every validator will have its own logic for how to melt itself, if it allows it at all.
+
+## Securing the truth of announcements
+
+Many validators will want to enforce the creation of an announcement with some data that they have verified to be true. There is, however, a danger that the inner puzzle or some other validator could create an announcement that would contradict the truthful announcement that the validator created. The standard way to prevent this is to prefix the announcement with some byte string unique to the validator and then raise if any other identical length announcements with an identical prefix exist in the set of conditions that will be returned to the blockchain.
+
+# A more powerful (and more complicated) meta puzzle
+
+The common tricks above are so common that it could make sense to generalize them outside of the validators and up to the meta puzzle that hosts them.
+
+## An asset "type"
+
+From a very basic perspective, a coin's puzzle indicates two things about it:
+
+1) Who or what can initiate a spend
+2) What rules that spend must follow
+
+In the validating meta puzzle structure, the first point is described by the `INNER_PUZZLE` and the second point is described by the list of validators that are curried into the meta puzzle. In practice, the rules that the spend must follow define the "type" of asset that a coin represents.  The fungible token logic can be expressed as "This spend must not create or destroy any amount except as described by some issuance puzzle". The rigid supply is what makes the coin a token, and variety in issuance puzzles is what creates the notion of different types of tokens. We can therefore refer to coins with different validators as different "types" of assets and it may even make sense to call a validator an `AssetType`, especially if it gets more complicated than validation-only.
+
+## The structure of the bulkier VMP
+
+We propose a validating meta puzzle that is curried a list of AssetTypes T1, T2, ..., Tn and an inner puzzle P.
+
+An AssetType is comprised of the following information:
+* A `launcher_hash` which is the hash of the program that created the AssetType before it was added to the VMP
+* A `environment` object which is accessible and replaceable by all programs that run as a part of the AssetType
+* A `pre-validation` puzzle which runs every spend and can return conditions to be merged into the greater list of conditions
+* A `validator` puzzle which runs every spend and is given the opportunity to raise, but otherwise returns `()`
+* A `remover` puzzle hash which can be optionally revealed and run with a solution in order to remove the AssetType from the VMP
+
+During a spend, the VMP is also passed the following information in its solution:
+* A `lineage_proof` which is used to verify that the parent of the current coin was also a VMP. A lineage proof does not need to be supplied if the list of AssetTypes is empty. The implicit logic here is that a VMP can only be initialized with an empty list of types and therefore any types that are added must use a launcher.
+* A list of `unsafe_solutions` for each AssetType. These solutions are not secured by the inner puzzle in any way and can potentially be morphed by farmers.
+* A list of `type_additions` to add new AssetTypes.  Each addition is a `(puzzle . solution)` pair and must return a new AssetType minus the `launcher_hash` since that will be filled in by the VMP automatically.
+* A list of `type_removals` to remove current AssetTypes.  Each removal is a `(puzzle . solution)` pair where the hash of the puzzle must match the `remover_hash` for the AssetType that it is trying to remove.  The puzzle returns a list of conditions.
+* A list of `secure_solutions` for each AssetType. These solutions are secured by the inner puzzle as described below and cannot be morphed without the permission of the inner puzzle as described below.
+
+### Securing AssetType additions, removals, and solutions
+
+For obvious reasons, we would like it if farmers could not morph the solution in such a way that allowed them to add a new validator or remove an existing one. Similarly, we may have solution values that we do not want farmers to morph. We handle the security of these items all together by requiring that the inner puzzle return a condition `(REM H)` where `H == (sha256tree (type_additions type_removals secure_solutions))`. We do not restrict the number of `(REM H)` conditions that the inner puzzle can return which means that the inner puzzle could potentially opt in to a set of solutions rather than just a single solution (the use case for this is not clear, but it comes naturally and there's no obvious reason to disallow it either).
+
+### Execution
+
+The order of execution for the operations of the VMP is as follows:
+1. Validate the existence of the `(REM H)` condition for the security of the additions, removals, and solutions
+2. Validate the lineage proof
+3. Add any new AssetTypes
+4. Remove any existing AssetTypes
+5. Run pre-validators and ensure their conditions end up in the final list of conditions
+6. Run the validators with the full list of conditions and ensure they don't raise
+7. Wrap all existing create coins in a VMP with the new list of AssetTypes, unless there are no AssetTypes left
+
+### Namespacing announcements
+
+Whenever we generate new conditions (inner puzzle, type addition, type removal, pre validation) we define a "namespace" which the puzzle can use to return announcements that no other puzzle can return. The namespaces are calculated as follows:
+* _inner puzzle_: `(concat "namespaces" 0x0000000000000000000000000000000000000000000000000000000000000000)`
+* _type addition_: `(concat "namespaces" (sha256 1 <launcher_hash>))`
+* _pre validation_: `(concat "namespaces" (sha256 2 <launcher_hash))`
+* _type removal_: `(concat "namespaces" (sha256 3 <launcher_hash))`
+Any other announcement that is 42 bytes or longer and starts with "namespaces" will result in a raise.
 
 ------------------
 BRAINSTORM
