@@ -27,6 +27,8 @@
     ;    - the position of the item in secure_solutions corresponds the type in the same position in the TYPES list
   )
 
+  (include *standard-cl-21*)
+
   (include condition_codes.clib)
   (include curry_and_treehash.clib)
   (include utility_macros.clib)
