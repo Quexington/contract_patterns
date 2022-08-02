@@ -1,0 +1,236 @@
+(mod
+  (
+    THIS_MOD_HASH
+    TYPES  ; a "type" is a list comprised of the following elements:
+    ; - a "launcher" puzzle hash, which must be run before the type gets added to the list
+    ; - a "enivronment" object that will be provided to the next two puzzles before they run
+    ; - a "pre-validator" puzzle that takes inner puzzle conditions and returns its own to append
+    ; - a "validator" puzzle which is given the entire list of conditions and the opportunity to raise
+    ; - a "remover" puzzle hash, which must be revealed and run before the type is removed from the list
+    INNER_PUZZLE
+    inner_solution
+    lineage_proof  ; the (parent_id types_hash inner_puzzle_hash amount) for this coin's parent
+    unsafe_solutions
+    secured_information  ; (type_additions type_removals secure_solutions)
+    ; the hash of secured_information must be returned in a REM by the inner puzzle
+    ; Here's a breakdown for each of the secured items:
+    ;  - type_additions: A list of (puzzle . solution) pairs that each return a new type and conditions:
+    ;    - ((environment pre_validator_puzzle validator_puzzle remover_hash) . conditions)
+    ;    - the hash of the puzzle used will be committed to during the lifespan of this type as its "launcher"
+    ;  - type_removals: A list of optional (puzzle . solution) pairs that returns conditions
+    ;    - you must return a list equal to the length of types including any new additions
+    ;    - the position of the item in type_removals corresponds the type in the same position in the TYPES list
+    ;    - use () if you do not intend to remove the type
+    ;    - the hash of the puzzle used must match the comitted to remover_hash
+    ;  - secure_solutions: A list of optional solutions to pass to the TYPES
+    ;    - you must return a list equal to the length of types including any new additions
+    ;    - the position of the item in secure_solutions corresponds the type in the same position in the TYPES list
+  )
+
+  (include condition_codes.clib)
+  (include curry_and_treehash.clib)
+  (include utility_macros.clib)
+
+  ; This checks a list of conditions for announcements outside of a specified namespace
+  (defun enforce_namespace (namespace conditions_left return_conditions)
+    (if conditions_left
+        (assert
+            (not
+              (and
+                (or
+                  (= (f (f conditions_left)) CREATE_COIN_ANNOUNCEMENT)
+                  (= (f (f conditions_left)) CREATE_PUZZLE_ANNOUNCEMENT)
+                )
+                (> (strlen (f (r (f conditions_left)))) 41)
+                (= (substr (f (r (f conditions_left))) 0 10) "namespaces")
+                (not (= (substr (f (r (f conditions_left))) 10 42) namespace))
+              )
+            )
+            (enforce_namespace namespace (r conditions_left) (c (f conditions_left) return_conditions))
+        )
+        return_conditions
+    )
+  )
+
+  ; Loop through the conditions looking for a (REM (sha256tree secured_information)) condition
+  (defun check_secure_solutions (conditions secure_hash)
+    (if conditions
+        (if (and  ; lazy eval incase (f (r (f conditions))) doesn't exist
+              (= (f (f conditions)) REM)
+              (= (f (r (f conditions))) secure_hash)
+            )
+            conditions
+            (check_secure_solutions (r conditions))
+        )
+        (x)
+    )
+  )
+
+  ; Optionally add an ASSERT_MY_PARENT_ID to prove our parent was also a VMP
+  ; If TYPES is an empty list, we don't bother to check our parent
+  (defun-inline check_lineage_proof (conditions)
+    (if TYPES
+        (c
+          (list ASSERT_MY_PARENT_ID
+            (calculate_coin_id
+              (f lineage_proof)
+              (puzzle_hash_of_curried_function THIS_MOD_HASH
+                (sha256tree THIS_MOD_HASH)
+                (f (r lineage_proof))
+                (f (r (r lineage_proof)))
+              )
+              (f (r (r (r lineage_proof))))
+            )
+          )
+          conditions
+        )
+        conditions
+    )
+  )
+
+  ; Loop through the type_additions and return a new list of TYPES in addition to old conditions + potential new ones
+  (defun add_types (TYPES type_additions conditions)
+    (if type_additions
+        (prepend_types_and_merge_conditions
+          TYPES
+          (r type_additions)
+          conditions
+          (sha256tree (f (f type_additions)))
+          (a (f (f type_additions)) (r (f type_additions)))
+        )
+        (c TYPES conditions)
+    )
+  )
+  ; (mutually recursive helper function for above)
+  (defun prepend_types_and_merge_conditions (TYPES type_additions conditions launcher_hash (new_type . new_conditions))
+    (add_types (c (c launcher_hash new_type) TYPES) type_additions (merge_lists (enforce_namespace (sha256 1 launcher_hash) new_conditions ()) conditions))
+  )
+
+  ; Loop through the type_removals and return a new list of TYPES in addition to old conditions + potential new ones
+  (defun remove_types (type_removals NEW_TYPES (TYPES . conditions))
+    (if type_removals
+        (if (f type_removals)
+            (remove_types
+              (r type_removals)
+              NEW_TYPES
+              (c
+                (r TYPES)
+                (merge_lists
+                  (enforce_namespace (sha256 3 (f (f TYPES))) (a (f (f type_removals)) (c (f TYPES) (r (f type_removals)))) ())
+                  conditions
+                )
+              )
+            )
+            (remove_types
+              (r type_removals)
+              (c (f TYPES) NEW_TYPES)
+              (c (r TYPES) conditions)
+            )
+        )
+        (c NEW_TYPES conditions)
+    )
+  )
+
+  ; Run through pre validators and the solutions (both unsafe and secure) and fold the conditions in
+  (defun run_pre_validation (unsafe_solutions secure_solutions COMPLETED_TYPES (TYPES_LEFT . conditions))
+    (if TYPES_LEFT
+        (run_pre_validation
+          (r unsafe_solutions)
+          (r secure_solutions)
+          (c (f TYPES_LEFT) COMPLETED_TYPES)
+          (c
+            (r TYPES_LEFT)
+            (merge_lists
+              (enforce_namespace
+                (sha256 2 (f (f TYPES_LEFT)))
+                (a (f (r (r (f TYPES_LEFT)))) (list (f TYPES_LEFT) (f unsafe_solutions) (f secure_solutions)))
+                ()
+              )
+              conditions
+            )
+          )
+        )
+        (c COMPLETED_TYPES conditions)
+    )
+  )
+
+  ; Run through validators and the solutions (both unsafe and secure), giving each the opportunity to raise
+  (defun run_validation (unsafe_solutions secure_solutions COMPLETED_TYPES (TYPES_LEFT . conditions))
+    (if TYPES_LEFT
+        (if (a (f (r (r (r (f TYPES_LEFT))))) (list (f TYPES_LEFT) (f unsafe_solutions) (f secure_solutions)))
+          (x "non-nil exit code")
+          (run_validation
+            (r unsafe_solutions)
+            (r secure_solutions)
+            (c (f TYPES_LEFT) COMPLETED_TYPES)
+            (c
+              (r TYPES_LEFT)
+              conditions
+            )
+          )
+        )
+        (c (i COMPLETED_TYPES (sha256tree COMPLETED_TYPES) ()) conditions)
+    )
+  )
+
+  ; Wrap all create coins in ourself if there are any types still active
+  (defun wrap_all_create_coins (morphed_conditions (TYPE_HASH . conditions_left))
+    (if TYPE_HASH
+        (if conditions_left
+            (wrap_all_create_coins
+              (c (morph_create_coin TYPE_HASH (f conditions_left)) morphed_conditions)
+              (c TYPE_HASH (r conditions_left))
+            )
+            morphed_conditions
+        )
+        conditions_left
+    )
+  )
+  ; (Utility helper function for above)
+  (defun-inline morph_create_coin (TYPE_HASH condition)
+    (if (= (f condition) CREATE_COIN)
+        (c CREATE_COIN
+          (c
+            (puzzle_hash_of_curried_function THIS_MOD_HASH
+              (sha256tree THIS_MOD_HASH)
+              TYPE_HASH
+              (f (r condition))
+            )
+            (r condition)
+          )
+        )
+        condition
+    )
+  )
+
+  (wrap_all_create_coins
+    ()
+    (run_validation
+      unsafe_solutions
+      (f (r (r secured_information)))
+      ()
+      (run_pre_validation
+        unsafe_solutions
+        (f (r (r secured_information)))
+        ()
+        (remove_types
+          type_removals
+          (add_types
+            TYPES
+            (f secured_information)
+            (check_lineage_proof
+              (check_secure_solutions
+                (enforce_namespace
+                  0x0000000000000000000000000000000000000000000000000000000000000000
+                  (a INNER_PUZZLE inner_solution)
+                  ()
+                )
+                (sha256tree secured_information)
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+)
