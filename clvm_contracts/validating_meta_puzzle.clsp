@@ -227,11 +227,11 @@
     ()
     (run_validation
       unsafe_solutions
-      (f (r (r secured_information)))
+      secure_solutions
       ()
       (run_pre_validation
         unsafe_solutions
-        (f (r (r secured_information)))
+        secure_solutions
         ()
         (remove_types
           type_removals
