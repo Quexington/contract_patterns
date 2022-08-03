@@ -11,6 +11,7 @@ from chia.wallet.puzzles.load_clvm import load_clvm
 VMP_MOD = load_clvm(
     "validating_meta_puzzle.clsp", package_or_requirement="clvm_contracts"
 )
+NAMESPACE_PREFIX = b"namespaces"
 
 
 @dataclasses.dataclass(frozen=True)

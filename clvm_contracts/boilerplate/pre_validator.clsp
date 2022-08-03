@@ -15,6 +15,6 @@
 
   (include *standard-cl-21*)
 
-  (c environment ())
+  (c environment secure_solution)
 
 )

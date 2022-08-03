@@ -50,6 +50,7 @@
                 (not (= (substr (f (r (f conditions_left))) 10 42) namespace))
               )
             )
+            ; then
             (enforce_namespace namespace (r conditions_left) (c (f conditions_left) return_conditions))
         )
         return_conditions
@@ -57,31 +58,40 @@
   )
 
   ; Loop through the conditions looking for a (REMARK (sha256tree secured_information)) condition
-  (defun check_secure_solutions (conditions secure_hash)
+  (defun check_secure_solutions (secure_hash completed_conditions found conditions)
     (if conditions
         (if (and  ; lazy eval incase (f (r (f conditions))) doesn't exist
               (= (f (f conditions)) REMARK)
               (= (f (r (f conditions))) secure_hash)
             )
-            conditions
-            (check_secure_solutions (r conditions))
+            (check_secure_solutions secure_hash (c (f conditions) completed_conditions) 1 (r conditions))
+            (check_secure_solutions secure_hash (c (f conditions) completed_conditions) found (r conditions))
         )
-        (x)
+        (assert found
+          ; then
+          completed_conditions
+        )
     )
   )
 
   ; Optionally add an ASSERT_MY_PARENT_ID to prove our parent was also a VMP
   ; If TYPES is an empty list, we don't bother to check our parent
-  (defun-inline check_lineage_proof (conditions)
+  (defun-inline check_lineage_proof
+    (
+      THIS_MOD_HASH
+      TYPES
+      lineage_proof
+      conditions
+    )
     (if TYPES
         (c
           (list ASSERT_MY_PARENT_ID
             (calculate_coin_id
               (f lineage_proof)
               (puzzle_hash_of_curried_function THIS_MOD_HASH
-                (sha256tree THIS_MOD_HASH)
-                (f (r lineage_proof))
                 (f (r (r lineage_proof)))
+                (f (r lineage_proof))
+                (sha256tree THIS_MOD_HASH)
               )
               (f (r (r (r lineage_proof))))
             )
@@ -240,13 +250,18 @@
             TYPES
             (f secured_information)
             (check_lineage_proof
+              THIS_MOD_HASH
+              TYPES
+              lineage_proof
               (check_secure_solutions
+                (sha256tree secured_information)
+                ()
+                ()
                 (enforce_namespace
                   0x0000000000000000000000000000000000000000000000000000000000000000
                   (a INNER_PUZZLE inner_solution)
                   ()
                 )
-                (sha256tree secured_information)
               )
             )
           )
