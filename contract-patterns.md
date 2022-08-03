@@ -113,7 +113,7 @@ This means all validators all have the same API: accept a list of conditions plu
 
 **We might also consider returning 0 for failure or non-0 for success.**
 
-In some cases, we may want to pass solution data that can't be morphed by farmers. (I can't think of a case where this would actually be necessary.) We declare a new condition code `REM` with value `1` (so it looks like `q`) which is guaranteed to always be ignored by the blockchain validation layer. The validation driver looks for the first instance of this special condition, and pulls of it N objects, one of each of which is passed to the N validation layers. If this data is missing, the default `0` is used.
+In some cases, we may want to pass solution data that can't be morphed by farmers. (I can't think of a case where this would actually be necessary.) We declare a new condition code `REMARK` with value `1` (so it looks like `q`) which is guaranteed to always be ignored by the blockchain validation layer. The validation driver looks for the first instance of this special condition, and pulls of it N objects, one of each of which is passed to the N validation layers. If this data is missing, the default `0` is used.
 
 So a validator looks like:
 
@@ -163,7 +163,7 @@ The validation driver might also consider pre-computing values commonly used by 
       ; we don't know what `condition_summary` should look like yet
       ; (or if it should even exist)
       ; this roughly corresponds to "truths"
-      ; One thing we might do is dig out the `(REM)` condition and yield those
+      ; One thing we might do is dig out the `(REMARK)` condition and yield those
       ; parameters back to the validators in turn.
       ; This would make this puzzle a bit more complicated (but still very general).
       (c conditions 0)
@@ -239,7 +239,7 @@ We propose a validating meta puzzle that is curried a list of AssetTypes T1, T2,
 An AssetType is comprised of the following information:
 * A `launcher_hash` which is the hash of the program that created the AssetType before it was added to the VMP
 * A `environment` object which is accessible and replaceable by all programs that run as a part of the AssetType
-* A `pre-validation` puzzle which runs every spend and can return conditions to be merged into the greater list of conditions as well as update the `environment`
+* A `pre-validator` puzzle which runs every spend and can return conditions to be merged into the greater list of conditions as well as update the `environment`
 * A `validator` puzzle which runs every spend and is given the opportunity to raise, but otherwise returns `()`
 * A `remover` puzzle hash which can be optionally revealed and run with a solution in order to remove the AssetType from the VMP
 
@@ -252,12 +252,12 @@ During a spend, the VMP is also passed the following information in its solution
 
 ### Securing AssetType additions, removals, and solutions
 
-For obvious reasons, we would like it if farmers could not morph the solution in such a way that allowed them to add a new validator or remove an existing one. Similarly, we may have solution values that we do not want farmers to morph. We handle the security of these items all together by requiring that the inner puzzle return a condition `(REM H)` where `H == (sha256tree (type_additions type_removals secure_solutions))`. We do not restrict the number of `(REM H)` conditions that the inner puzzle can return which means that the inner puzzle could potentially opt in to a set of solutions rather than just a single solution (the use case for this is not clear, but it comes naturally and there's no obvious reason to disallow it either).
+For obvious reasons, we would like it if farmers could not morph the solution in such a way that allowed them to add a new validator or remove an existing one. Similarly, we may have solution values that we do not want farmers to morph. We handle the security of these items all together by requiring that the inner puzzle return a condition `(REMARK H)` where `H == (sha256tree (type_additions type_removals secure_solutions))`. We do not restrict the number of `(REMARK H)` conditions that the inner puzzle can return which means that the inner puzzle could potentially opt in to a set of solutions rather than just a single solution (the use case for this is not clear, but it comes naturally and there's no obvious reason to disallow it either).
 
 ### Execution
 
 The order of execution for the operations of the VMP is as follows:
-1. Validate the existence of the `(REM H)` condition for the security of the additions, removals, and solutions
+1. Validate the existence of the `(REMARK H)` condition for the security of the additions, removals, and solutions
 2. Validate the lineage proof
 3. Add any new AssetTypes
 4. Remove any existing AssetTypes

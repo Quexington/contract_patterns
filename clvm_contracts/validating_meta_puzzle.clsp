@@ -11,8 +11,10 @@
     inner_solution
     lineage_proof  ; the (parent_id types_hash inner_puzzle_hash amount) for this coin's parent
     unsafe_solutions
-    secured_information  ; (type_additions type_removals secure_solutions)
-    ; the hash of secured_information must be returned in a REM by the inner puzzle
+    (@ secured_information
+      (type_additions type_removals secure_solutions)
+    )
+    ; the hash of secured_information must be returned in a REMARK by the inner puzzle
     ; Here's a breakdown for each of the secured items:
     ;  - type_additions: A list of (puzzle . solution) pairs that each return a new type and conditions:
     ;    - ((environment pre_validator_puzzle validator_puzzle remover_hash) . conditions)
@@ -54,11 +56,11 @@
     )
   )
 
-  ; Loop through the conditions looking for a (REM (sha256tree secured_information)) condition
+  ; Loop through the conditions looking for a (REMARK (sha256tree secured_information)) condition
   (defun check_secure_solutions (conditions secure_hash)
     (if conditions
         (if (and  ; lazy eval incase (f (r (f conditions))) doesn't exist
-              (= (f (f conditions)) REM)
+              (= (f (f conditions)) REMARK)
               (= (f (r (f conditions))) secure_hash)
             )
             conditions
@@ -190,11 +192,12 @@
   )
 
   ; Wrap all create coins in ourself if there are any types still active
-  (defun wrap_all_create_coins (morphed_conditions (TYPE_HASH . conditions_left))
+  (defun wrap_all_create_coins (THIS_MOD_HASH morphed_conditions (TYPE_HASH . conditions_left))
     (if TYPE_HASH
         (if conditions_left
             (wrap_all_create_coins
-              (c (morph_create_coin TYPE_HASH (f conditions_left)) morphed_conditions)
+              THIS_MOD_HASH
+              (c (morph_create_coin THIS_MOD_HASH TYPE_HASH (f conditions_left)) morphed_conditions)
               (c TYPE_HASH (r conditions_left))
             )
             morphed_conditions
@@ -203,16 +206,16 @@
     )
   )
   ; (Utility helper function for above)
-  (defun-inline morph_create_coin (TYPE_HASH condition)
+  (defun-inline morph_create_coin (THIS_MOD_HASH TYPE_HASH condition)
     (if (= (f condition) CREATE_COIN)
         (c CREATE_COIN
           (c
             (puzzle_hash_of_curried_function THIS_MOD_HASH
-              (sha256tree THIS_MOD_HASH)
-              TYPE_HASH
               (f (r condition))
+              TYPE_HASH
+              (sha256tree THIS_MOD_HASH)
             )
-            (r condition)
+            (r (r condition))
           )
         )
         condition
@@ -220,6 +223,7 @@
   )
 
   (wrap_all_create_coins
+    THIS_MOD_HASH
     ()
     (run_validation
       unsafe_solutions
@@ -231,6 +235,7 @@
         ()
         (remove_types
           type_removals
+          ()
           (add_types
             TYPES
             (f secured_information)
