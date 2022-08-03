@@ -105,21 +105,24 @@
   )
   ; (mutually recursive helper function for above)
   (defun prepend_types_and_merge_conditions (TYPES type_additions conditions launcher_hash (new_type . new_conditions))
-    (add_types (c (c launcher_hash new_type) TYPES) type_additions (merge_lists (enforce_namespace (sha256 1 launcher_hash) new_conditions ()) conditions))
+    (add_types (c (c launcher_hash new_type) TYPES) type_additions (merge_lists (enforce_namespace launcher_hash new_conditions ()) conditions))
   )
 
   ; Loop through the type_removals and return a new list of TYPES in addition to old conditions + potential new ones
   (defun remove_types (type_removals NEW_TYPES (TYPES . conditions))
     (if type_removals
         (if (f type_removals)
-            (remove_types
-              (r type_removals)
-              NEW_TYPES
-              (c
-                (r TYPES)
-                (merge_lists
-                  (enforce_namespace (sha256 3 (f (f TYPES))) (a (f (f type_removals)) (c (f TYPES) (r (f type_removals)))) ())
-                  conditions
+            (assert (= (sha256tree (f (f type_removals))) (f (r (r (r (r (f TYPES)))))))
+              ; then
+              (remove_types
+                (r type_removals)
+                NEW_TYPES
+                (c
+                  (r TYPES)
+                  (merge_lists
+                    (enforce_namespace (f (r (r (r (r (f TYPES)))))) (a (f (f type_removals)) (c (f TYPES) (r (f type_removals)))) ())
+                    conditions
+                  )
                 )
               )
             )
@@ -136,23 +139,34 @@
   ; Run through pre validators and the solutions (both unsafe and secure) and fold the conditions in
   (defun run_pre_validation (unsafe_solutions secure_solutions COMPLETED_TYPES (TYPES_LEFT . conditions))
     (if TYPES_LEFT
-        (run_pre_validation
-          (r unsafe_solutions)
-          (r secure_solutions)
-          (c (f TYPES_LEFT) COMPLETED_TYPES)
-          (c
-            (r TYPES_LEFT)
-            (merge_lists
-              (enforce_namespace
-                (sha256 2 (f (f TYPES_LEFT)))
-                (a (f (r (r (f TYPES_LEFT)))) (list (f TYPES_LEFT) (f unsafe_solutions) (f secure_solutions)))
-                ()
-              )
-              conditions
-            )
-          )
+        (update_type_state
+          unsafe_solutions
+          secure_solutions
+          COMPLETED_TYPES
+          TYPES_LEFT
+          conditions
+          (a (f (r (r (f TYPES_LEFT)))) (list (f TYPES_LEFT) (f unsafe_solutions) (f secure_solutions)))
         )
         (c COMPLETED_TYPES conditions)
+    )
+  )
+  ; Mutually recursive helper function for above
+  (defun update_type_state (unsafe_solutions secure_solutions COMPLETED_TYPES TYPES_LEFT conditions (new_state . new_conditions))
+    (run_pre_validation
+      (r unsafe_solutions)
+      (r secure_solutions)
+      (c (c (f (f TYPES_LEFT)) (c new_state (r (r (f TYPES_LEFT))))) COMPLETED_TYPES)
+      (c
+        (r TYPES_LEFT)
+        (merge_lists
+          (enforce_namespace
+            (sha256tree (f (r (r (f TYPES_LEFT)))))
+            new_conditions
+            ()
+          )
+          conditions
+        )
+      )
     )
   )
 

@@ -239,7 +239,7 @@ We propose a validating meta puzzle that is curried a list of AssetTypes T1, T2,
 An AssetType is comprised of the following information:
 * A `launcher_hash` which is the hash of the program that created the AssetType before it was added to the VMP
 * A `environment` object which is accessible and replaceable by all programs that run as a part of the AssetType
-* A `pre-validation` puzzle which runs every spend and can return conditions to be merged into the greater list of conditions
+* A `pre-validation` puzzle which runs every spend and can return conditions to be merged into the greater list of conditions as well as update the `environment`
 * A `validator` puzzle which runs every spend and is given the opportunity to raise, but otherwise returns `()`
 * A `remover` puzzle hash which can be optionally revealed and run with a solution in order to remove the AssetType from the VMP
 
@@ -269,9 +269,9 @@ The order of execution for the operations of the VMP is as follows:
 
 Whenever we generate new conditions (inner puzzle, type addition, type removal, pre validation) we define a "namespace" which the puzzle can use to return announcements that no other puzzle can return. The namespaces are calculated as follows:
 * _inner puzzle_: `(concat "namespaces" 0x0000000000000000000000000000000000000000000000000000000000000000)`
-* _type addition_: `(concat "namespaces" (sha256 1 <launcher_hash>))`
-* _pre validation_: `(concat "namespaces" (sha256 2 <launcher_hash))`
-* _type removal_: `(concat "namespaces" (sha256 3 <launcher_hash))`
+* _type addition_: `(concat "namespaces" <launcher_hash>)`
+* _pre validation_: `(concat "namespaces" (sha256tree <pre_validator>))`
+* _type removal_: `(concat "namespaces" <remover_hash>)``
 Any other announcement that is 42 bytes or longer and starts with "namespaces" will result in a raise.
 
 ------------------
