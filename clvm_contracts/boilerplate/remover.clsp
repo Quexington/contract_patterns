@@ -1,0 +1,19 @@
+(mod
+  (
+      (@ TYPE
+        (
+            launcher_hash
+            environment
+            pre_validator
+            validator
+            remover_hash
+        )
+      )
+      solution
+  )
+
+  (include *standard-cl-21*)
+
+  ()
+
+)
