@@ -132,7 +132,7 @@
                 (c
                   (r TYPES)
                   (merge_lists
-                    (enforce_namespace (f (r (r (r (r (f TYPES)))))) (a (f (f type_removals)) (c (f TYPES) (r (f type_removals)))) ())
+                    (enforce_namespace (f (r (r (r (r (f TYPES)))))) (a (f (f type_removals)) (list (f TYPES) (r (f type_removals)))) ())
                     conditions
                   )
                 )

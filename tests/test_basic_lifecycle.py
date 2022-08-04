@@ -59,11 +59,11 @@ async def test_basic_lifecycle():
             ENVIRONMENT,
             PRE_VALIDATOR,
             VALIDATOR,
-            REMOVER,
+            REMOVER.get_tree_hash(),
         )
 
         # Create a solution adding it to the vmp
-        launcher_solution = Program.to(([ENVIRONMENT, PRE_VALIDATOR, VALIDATOR, REMOVER], None))
+        launcher_solution = Program.to(([ENVIRONMENT, PRE_VALIDATOR, VALIDATOR, REMOVER.get_tree_hash()], None))
         secured_info = SecuredInformation(
             [(LAUNCHER, launcher_solution)],
             [None],
@@ -97,7 +97,7 @@ async def test_basic_lifecycle():
         basic_vmp = VMP(ACS, [basic_type])
         lineage_proof = LineageProof(
             vmp_coin.parent_coin_info,
-            basic_vmp.get_types_hash(),
+            empty_vmp.get_types_hash(),
             ACS_PH,
             vmp_coin.amount,
         )
@@ -107,7 +107,7 @@ async def test_basic_lifecycle():
             )
         )[0].coin
 
-        # Now let's test a bunch of failure cases
+        # Now let's test some failure cases
         secured_info = SecuredInformation(
             [],
             [None],
@@ -144,13 +144,13 @@ async def test_basic_lifecycle():
                 )
 
         # Now let's test banned announcements from the pre-validator
-        bad_secured_info = SecuredInformation(
-            [],
-            [None],
-            [[[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]]],
-        )
         for opcode in (60,62):
-            illegal_launcher_announcement_bundle = SpendBundle(
+            bad_secured_info = SecuredInformation(
+                [],
+                [None],
+                [[[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]]],
+            )
+            illegal_pre_val_announcement_bundle = SpendBundle(
                 [
                     CoinSpend(
                         vmp_coin,
@@ -171,10 +171,83 @@ async def test_basic_lifecycle():
                 G2Element(),
             )
             with pytest.raises(ValueError, match="clvm raise"):
-                illegal_launcher_announcement_bundle.coin_spends[
+                illegal_pre_val_announcement_bundle.coin_spends[
                     0
                 ].puzzle_reveal.to_program().run(
-                    illegal_launcher_announcement_bundle.coin_spends[0].solution.to_program()
+                    illegal_pre_val_announcement_bundle.coin_spends[0].solution.to_program()
                 )
+
+        # Try to create a bad announcement while removing the type
+        for opcode in (60,62):
+            bad_secured_info = SecuredInformation(
+                [],
+                [[[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]]],
+                [],
+            )
+            illegal_remover_announcement_bundle = SpendBundle(
+                [
+                    CoinSpend(
+                        vmp_coin,
+                        basic_vmp.construct(),
+                        basic_vmp.solve(
+                            Program.to(
+                                [
+                                    [51, ACS_PH, vmp_coin.amount],
+                                    [1, bad_secured_info.get_tree_hash()],
+                                ]
+                            ),
+                            lineage_proof,
+                            [None],
+                            bad_secured_info,
+                        ),
+                    )
+                ],
+                G2Element(),
+            )
+            with pytest.raises(ValueError, match="clvm raise"):
+                illegal_remover_announcement_bundle.coin_spends[
+                    0
+                ].puzzle_reveal.to_program().run(
+                    illegal_remover_announcement_bundle.coin_spends[0].solution.to_program()
+                )
+
+        # Now let's try to honestly remove the type
+        removal_secured_info = SecuredInformation(
+            [],
+            [(REMOVER, None)],
+            [],
+        )
+        remover_bundle = SpendBundle(
+            [
+                CoinSpend(
+                    vmp_coin,
+                    basic_vmp.construct(),
+                    basic_vmp.solve(
+                        Program.to(
+                            [
+                                [51, ACS_PH, vmp_coin.amount],
+                                [1, removal_secured_info.get_tree_hash()],
+                            ]
+                        ),
+                        lineage_proof,
+                        [None],
+                        removal_secured_info,
+                    ),
+                )
+            ],
+            G2Element(),
+        )
+        result = await sim_client.push_tx(remover_bundle)
+        await sim.farm_block()
+        assert result == (MempoolInclusionStatus.SUCCESS, None)
+
+        # Assert that the VMP was cleared from the new coin
+        acs_coin = (
+            await sim_client.get_coin_records_by_parent_ids(
+                [vmp_coin.name()], include_spent_coins=False
+            )
+        )[0].coin
+        assert acs_coin.puzzle_hash == ACS_PH
+
     finally:
         await sim.close()
