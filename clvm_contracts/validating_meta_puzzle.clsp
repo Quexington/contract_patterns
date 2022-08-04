@@ -185,7 +185,7 @@
   ; Run through validators and the solutions (both unsafe and secure), giving each the opportunity to raise
   (defun run_validation (unsafe_solutions secure_solutions COMPLETED_TYPES (TYPES_LEFT . conditions))
     (if TYPES_LEFT
-        (if (a (f (r (r (r (f TYPES_LEFT))))) (list (f TYPES_LEFT) (f unsafe_solutions) (f secure_solutions)))
+        (if (a (f (r (r (r (f TYPES_LEFT))))) (list (f TYPES_LEFT) conditions (f unsafe_solutions) (f secure_solutions)))
           (x "non-nil exit code")
           (run_validation
             (r unsafe_solutions)

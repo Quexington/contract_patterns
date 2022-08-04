@@ -9,6 +9,7 @@
             remover_hash
         )
       )
+      conditions
       unsafe_solution
       secure_solution
   )
