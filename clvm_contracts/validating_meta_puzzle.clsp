@@ -10,6 +10,7 @@
     INNER_PUZZLE
     inner_solution
     lineage_proof  ; the (parent_id types_hash inner_puzzle_hash amount) for this coin's parent
+    type_proofs
     unsafe_solutions
     (@ secured_information
       (type_additions type_removals secure_solutions)
@@ -54,6 +55,35 @@
             (enforce_namespace namespace (r conditions_left) (c (f conditions_left) return_conditions))
         )
         return_conditions
+    )
+  )
+
+  ; Verify that a list of puzzle hashes are VMPs with specified type hashes
+  (defun check_type_proofs (THIS_MOD_HASH type_proofs)
+    (if type_proofs
+        (assert
+          (=
+            (f (f type_proofs))
+            (puzzle_hash_of_curried_function THIS_MOD_HASH
+              (f (r (f type_proofs)))
+              (build_types_hash (f (r (r (f type_proofs)))))
+              (sha256tree THIS_MOD_HASH)
+            )
+          )
+          ; then
+          (check_type_proofs THIS_MOD_HASH (r type_proofs))
+        )
+        1
+    )
+  )
+  ; Helper function to do shatree without leaf hashing
+  (defun build_types_hash (type_hashes)
+    (if (l type_hashes)
+        (sha256 2
+          (f type_hashes)
+          (build_types_hash (r type_hashes))
+        )
+        (if type_hashes type_hashes (sha256tree type_hashes))
     )
   )
 
@@ -232,35 +262,38 @@
     )
   )
 
-  (wrap_all_create_coins
-    THIS_MOD_HASH
-    ()
-    (run_validation
-      unsafe_solutions
-      secure_solutions
+  (assert (check_type_proofs THIS_MOD_HASH type_proofs)
+    ; then
+    (wrap_all_create_coins
+      THIS_MOD_HASH
       ()
-      (run_pre_validation
+      (run_validation
         unsafe_solutions
         secure_solutions
         ()
-        (remove_types
-          type_removals
+        (run_pre_validation
+          unsafe_solutions
+          secure_solutions
           ()
-          (add_types
-            TYPES
-            (f secured_information)
-            (check_lineage_proof
-              THIS_MOD_HASH
+          (remove_types
+            type_removals
+            ()
+            (add_types
               TYPES
-              lineage_proof
-              (check_secure_solutions
-                (sha256tree secured_information)
-                ()
-                ()
-                (enforce_namespace
-                  0x0000000000000000000000000000000000000000000000000000000000000000
-                  (a INNER_PUZZLE inner_solution)
+              (f secured_information)
+              (check_lineage_proof
+                THIS_MOD_HASH
+                TYPES
+                lineage_proof
+                (check_secure_solutions
+                  (sha256tree secured_information)
                   ()
+                  ()
+                  (enforce_namespace
+                    0x0000000000000000000000000000000000000000000000000000000000000000
+                    (a INNER_PUZZLE inner_solution)
+                    ()
+                  )
                 )
               )
             )

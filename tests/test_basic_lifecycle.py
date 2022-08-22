@@ -232,6 +232,7 @@ async def test_basic_lifecycle():
                         lineage_proof,
                         [None],
                         removal_secured_info,
+                        type_proofs=[basic_vmp.get_type_proof([basic_type])],
                     ),
                 )
             ],

@@ -201,6 +201,10 @@ The driver should require that `CREATE_COIN` conditions that come out of the inn
 
 Many validation puzzles use the same types of "tricks" to secure their rulesets from being cheated. We can look at a few examples:
 
+## Interacting with coins of the same type
+
+One of the most common patterns in existing Chialisp is checking that a coin is of a certain type (CAT, Singleton, etc.) and then asserting an announcement from it. The reason this is so useful is because you can outsource the validation of some information to another coin. If you know the code that a coin has to run, you can know whether or not it validated the thing it is announcing.
+
 ## Proving a "launcher" puzzle
 
 It's very common for a validator to want to verify that it came into existence in some specific way. For example, a singleton wants to prove that it was the only coin created from a specific ancestor so it can use that ancestor's ID as a provably unique ID for itself. Often this is done in the form of a "lineage proof". A lineage proof is usually a proof that either your parent had the same validation logic as you, OR that it was a coin with some puzzle that you trust to initiate your lineage of coins correctly. If you know that if your parent has the same validation logic as you, you know that it checked its parent and so on until you reach the "launcher" ancestor.
@@ -245,6 +249,7 @@ An AssetType is comprised of the following information:
 
 During a spend, the VMP is also passed the following information in its solution:
 * A `lineage_proof` which is used to verify that the parent of the current coin was also a VMP. A lineage proof does not need to be supplied if the list of AssetTypes is empty. The implicit logic here is that a VMP can only be initialized with an empty list of types and therefore any types that are added must use a launcher.
+* An optional list of `type_proofs`. Each proof consists of a puzzle hash, an inner puzzle hash, and a list of hashes of types that can be used to validate that the puzzle hash is a VMP with those types included `(puzzle_hash . (inner_puzzle_hash .  (type_hash type_hash ...))`.
 * A list of `unsafe_solutions` for each AssetType. These solutions are not secured by the inner puzzle in any way and can potentially be morphed by farmers.
 * A list of `type_additions` to add new AssetTypes.  Each addition is a `(puzzle . solution)` pair and must return a new AssetType minus the `launcher_hash` since that will be filled in by the VMP automatically.
 * A list of `type_removals` to remove current AssetTypes.  Each removal is a `(puzzle . solution)` pair where the hash of the puzzle must match the `remover_hash` for the AssetType that it is trying to remove.  The puzzle returns a list of conditions.
@@ -257,13 +262,14 @@ For obvious reasons, we would like it if farmers could not morph the solution in
 ### Execution
 
 The order of execution for the operations of the VMP is as follows:
-1. Validate the existence of the `(REMARK H)` condition for the security of the additions, removals, and solutions
-2. Validate the lineage proof
-3. Add any new AssetTypes
-4. Remove any existing AssetTypes
-5. Run pre-validators and ensure their conditions end up in the final list of conditions
-6. Run the validators with the full list of conditions and ensure they don't raise
-7. Wrap all existing create coins in a VMP with the new list of AssetTypes, unless there are no AssetTypes left
+1. Validate all of the type proofs
+2. Validate the existence of the `(REMARK H)` condition for the security of the additions, removals, and solutions
+3. Validate the lineage proof
+4. Add any new AssetTypes
+5. Remove any existing AssetTypes
+6. Run pre-validators and ensure their conditions end up in the final list of conditions
+7. Run the validators with the full list of conditions and ensure they don't raise
+8. Wrap all existing create coins in a VMP with the new list of AssetTypes, unless there are no AssetTypes left
 
 ### Namespacing announcements
 
