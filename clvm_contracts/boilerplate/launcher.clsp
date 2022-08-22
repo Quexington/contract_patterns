@@ -1,1 +1,1 @@
-(mod solution solution)
+(mod (type_proofs solution) solution)

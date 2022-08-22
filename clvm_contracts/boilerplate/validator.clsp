@@ -9,6 +9,7 @@
             remover_hash
         )
       )
+      type_proofs
       conditions
       unsafe_solution
       secure_solution
