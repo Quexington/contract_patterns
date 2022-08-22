@@ -32,7 +32,7 @@ class AssetType:
             [
                 self.launcher_hash,
                 self.environment,
-                self.pre_validator,
+                self.pre_validator.get_tree_hash(),
                 self.validator,
                 self.remover_hash,
             ]
@@ -115,6 +115,7 @@ class VMP:
                 inner_solution,
                 None if lineage_proof is None else lineage_proof.as_program(),
                 type_proofs,
+                [typ.pre_validator for typ in self.types],
                 unsafe_solutions,
                 secured_information.as_program(),
             ]

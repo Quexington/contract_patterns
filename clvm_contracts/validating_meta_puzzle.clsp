@@ -11,6 +11,7 @@
     inner_solution
     lineage_proof  ; the (parent_id types_hash inner_puzzle_hash amount) for this coin's parent
     type_proofs
+    pre_validators
     unsafe_solutions
     (@ secured_information
       (type_additions type_removals secure_solutions)
@@ -182,24 +183,33 @@
   )
 
   ; Run through pre validators and the solutions (both unsafe and secure) and fold the conditions in
-  (defun run_pre_validation (type_proofs unsafe_solutions secure_solutions COMPLETED_TYPES (TYPES_LEFT . conditions))
+  (defun run_pre_validation (type_proofs pre_validators unsafe_solutions secure_solutions COMPLETED_TYPES (TYPES_LEFT . conditions))
     (if TYPES_LEFT
-        (update_type_state
-          type_proofs
-          unsafe_solutions
-          secure_solutions
-          COMPLETED_TYPES
-          TYPES_LEFT
-          conditions
-          (a (f (r (r (f TYPES_LEFT)))) (list (f TYPES_LEFT) type_proofs (f unsafe_solutions) (f secure_solutions)))
-        )
-        (c COMPLETED_TYPES conditions)
+      (verify_tree_hash type_proofs pre_validators unsafe_solutions secure_solutions COMPLETED_TYPES TYPES_LEFT conditions (f (r (r (f TYPES_LEFT)))))
+      (c COMPLETED_TYPES conditions)
+    )
+  )
+  (defun verify_tree_hash (type_proofs pre_validators unsafe_solutions secure_solutions COMPLETED_TYPES TYPES_LEFT conditions preval_treehash)
+    (assert (= (sha256tree (f pre_validators)) preval_treehash)
+      ; then
+      (update_type_state
+        type_proofs
+        pre_validators
+        unsafe_solutions
+        secure_solutions
+        COMPLETED_TYPES
+        TYPES_LEFT
+        conditions
+        preval_treehash
+        (a (f pre_validators) (list (f TYPES_LEFT) type_proofs (f unsafe_solutions) (f secure_solutions)))
+      )
     )
   )
   ; Mutually recursive helper function for above
-  (defun update_type_state (type_proofs unsafe_solutions secure_solutions COMPLETED_TYPES TYPES_LEFT conditions (new_state . new_conditions))
+  (defun update_type_state (type_proofs pre_validators unsafe_solutions secure_solutions COMPLETED_TYPES TYPES_LEFT conditions preval_treehash (new_state . new_conditions))
     (run_pre_validation
       type_proofs
+      (r pre_validators)
       (r unsafe_solutions)
       (r secure_solutions)
       (c (c (f (f TYPES_LEFT)) (c new_state (r (r (f TYPES_LEFT))))) COMPLETED_TYPES)
@@ -207,7 +217,7 @@
         (r TYPES_LEFT)
         (merge_lists
           (enforce_namespace
-            (sha256tree (f (r (r (f TYPES_LEFT)))))
+            preval_treehash
             new_conditions
             ()
           )
@@ -280,6 +290,7 @@
         ()
         (run_pre_validation
           type_proofs
+          pre_validators
           unsafe_solutions
           secure_solutions
           ()

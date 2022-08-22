@@ -61,9 +61,10 @@ async def test_basic_lifecycle():
             VALIDATOR,
             REMOVER.get_tree_hash(),
         )
+        basic_vmp = VMP(ACS, [basic_type])
 
         # Create a solution adding it to the vmp
-        launcher_solution = Program.to(([ENVIRONMENT, PRE_VALIDATOR, VALIDATOR, REMOVER.get_tree_hash()], None))
+        launcher_solution = Program.to((basic_type.as_program().rest(), None))
         secured_info = SecuredInformation(
             [(LAUNCHER, launcher_solution)],
             [None],
@@ -74,7 +75,7 @@ async def test_basic_lifecycle():
                 CoinSpend(
                     vmp_coin,
                     empty_vmp.construct(),
-                    empty_vmp.solve(
+                    basic_vmp.solve(
                         Program.to(
                             [
                                 [51, ACS_PH, vmp_coin.amount],
@@ -93,8 +94,6 @@ async def test_basic_lifecycle():
         await sim.farm_block()
         assert result == (MempoolInclusionStatus.SUCCESS, None)
 
-        # Reconstruct the VMP and make sure we found it correctly
-        basic_vmp = VMP(ACS, [basic_type])
         lineage_proof = LineageProof(
             vmp_coin.parent_coin_info,
             empty_vmp.get_types_hash(),

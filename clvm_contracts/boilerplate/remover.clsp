@@ -4,7 +4,7 @@
         (
             launcher_hash
             environment
-            pre_validator
+            pre_validator_hash
             validator
             remover_hash
         )
