@@ -1,0 +1,28 @@
+(
+
+  (defun-inline namespace_announcement (namespace data)
+    (concat "namespaces" namespace data)
+  )
+
+  (defun check_hash_type (puzzle_hash type_hash type_proofs)
+    (if type_proofs
+        (if (= puzzle_hash (f (f type_proofs)))
+            (if (in type_hash (f (r (f type_proofs))))
+                1
+                (check_hash_type puzzle_hash type_hash (r type_proofs))
+            )
+            (check_hash_type puzzle_hash type_hash (r type_proofs))
+        )
+        (x)
+    )
+  )
+  (defun in (item item_list)
+    (if item_list
+        (if (= item (f item_list))
+            1
+            (in item (r item_list))
+        )
+        ()
+    )
+  )
+)
