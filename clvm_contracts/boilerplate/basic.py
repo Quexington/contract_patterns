@@ -1,6 +1,6 @@
 from chia.types.blockchain_format.program import Program
-from chia.wallet.puzzles.load_clvm import load_clvm
 
+from clvm_contracts.load_clvm import load_clvm
 from clvm_contracts.validating_meta_puzzle import AssetType
 
 LAUNCHER = load_clvm(

@@ -88,7 +88,10 @@ def load_serialized_clvm(clvm_filename, package_or_requirement=__name__) -> Seri
             # Establish whether the size is zero on entry
             full_path = pathlib.Path(pkg_resources.resource_filename(package_or_requirement, clvm_filename))
             output = full_path.parent / hex_filename
-            compile_clvm(full_path, output, search_paths=[full_path.parent, full_path.parent.parent.joinpath("include")])
+            compile_clvm(full_path, output, search_paths=[
+                full_path.parent,
+                "clvm_contracts.include"
+            ])
 
     except NotImplementedError:
         # pyinstaller doesn't support `pkg_resources.resource_exists`

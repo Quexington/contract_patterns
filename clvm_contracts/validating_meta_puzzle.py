@@ -6,7 +6,8 @@ from typing import List, Optional, Tuple
 from chia.types.blockchain_format.program import Program
 from chia.types.blockchain_format.sized_bytes import bytes32
 from chia.util.ints import uint64
-from chia.wallet.puzzles.load_clvm import load_clvm
+
+from clvm_contracts.load_clvm import load_clvm
 
 
 VMP_MOD = load_clvm(
