@@ -9,8 +9,8 @@ from chia.types.blockchain_format.sized_bytes import bytes32
 from chia.types.coin_spend import CoinSpend
 from chia.types.mempool_inclusion_status import MempoolInclusionStatus
 from chia.types.spend_bundle import SpendBundle
-from chia.wallet.puzzles.load_clvm import load_clvm
 
+from clvm_contracts.boilerplate.basic import BasicType, LAUNCHER, REMOVER
 from clvm_contracts.validating_meta_puzzle import (
     AssetType,
     LineageProof,
@@ -40,27 +40,7 @@ async def test_basic_lifecycle():
         )[0].coin
 
         # Construct the most basic AssetType
-        LAUNCHER = load_clvm(
-            "launcher.clsp", package_or_requirement="clvm_contracts.boilerplate"
-        )
-        ENVIRONMENT = Program.to(None)
-        PRE_VALIDATOR = load_clvm(
-            "pre_validator.clsp", package_or_requirement="clvm_contracts.boilerplate"
-        )
-        VALIDATOR = load_clvm(
-            "validator.clsp", package_or_requirement="clvm_contracts.boilerplate"
-        )
-        REMOVER = load_clvm(
-            "remover.clsp", package_or_requirement="clvm_contracts.boilerplate"
-        )
-
-        basic_type = AssetType(
-            LAUNCHER.get_tree_hash(),
-            ENVIRONMENT,
-            PRE_VALIDATOR,
-            VALIDATOR,
-            REMOVER.get_tree_hash(),
-        )
+        basic_type = BasicType.new()
         basic_vmp = VMP(ACS, [basic_type])
 
         # Create a solution adding it to the vmp
