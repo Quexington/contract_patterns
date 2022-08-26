@@ -244,7 +244,7 @@ An AssetType is comprised of the following information:
 * A `launcher_hash` which is the hash of the program that created the AssetType before it was added to the VMP
 * A `environment` object which is accessible and replaceable by all programs that run as a part of the AssetType
 * A `pre-validator` puzzle hash which is revealed and run every spend and can return conditions to be merged into the greater list of conditions as well as update the `environment`
-* A `validator` puzzle which runs every spend and is given the opportunity to raise, but otherwise returns `()`
+* A `validator` puzzle hash which is revealed and run every spend and is given the opportunity to raise, but otherwise returns `()`
 * A `remover` puzzle hash which can be optionally revealed and run with a solution in order to remove the AssetType from the VMP
 
 During a spend, the VMP is also passed the following information in its solution:

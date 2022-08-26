@@ -4,14 +4,15 @@
     TYPES  ; a "type" is a list comprised of the following elements:
     ; - a "launcher" puzzle hash, which must be run before the type gets added to the list
     ; - a "enivronment" object that will be provided to the next two puzzles before they run
-    ; - a "pre-validator" puzzle that takes inner puzzle conditions and returns its own to append
-    ; - a "validator" puzzle which is given the entire list of conditions and the opportunity to raise
+    ; - a "pre-validator" puzzle hash that takes inner puzzle conditions and returns its own to append
+    ; - a "validator" puzzle hash which is given the entire list of conditions and the opportunity to raise
     ; - a "remover" puzzle hash, which must be revealed and run before the type is removed from the list
     INNER_PUZZLE
     inner_solution
     lineage_proof  ; the (parent_id types_hash inner_puzzle_hash amount) for this coin's parent
     type_proofs
     pre_validators
+    validators
     unsafe_solutions
     (@ secured_information
       (type_additions type_removals secure_solutions)
@@ -228,18 +229,22 @@
   )
 
   ; Run through validators and the solutions (both unsafe and secure), giving each the opportunity to raise
-  (defun run_validation (type_proofs unsafe_solutions secure_solutions COMPLETED_TYPES (TYPES_LEFT . conditions))
+  (defun run_validation (type_proofs validators unsafe_solutions secure_solutions COMPLETED_TYPES (TYPES_LEFT . conditions))
     (if TYPES_LEFT
-        (if (a (f (r (r (r (f TYPES_LEFT))))) (list (f TYPES_LEFT) type_proofs conditions (f unsafe_solutions) (f secure_solutions)))
-          (x "non-nil exit code")
-          (run_validation
-            type_proofs
-            (r unsafe_solutions)
-            (r secure_solutions)
-            (c (f TYPES_LEFT) COMPLETED_TYPES)
-            (c
-              (r TYPES_LEFT)
-              conditions
+        (assert (= (f (r (r (r (f TYPES_LEFT))))) (sha256tree (f validators)))
+          ; then
+          (if (a (f validators) (list (f TYPES_LEFT) type_proofs conditions (f unsafe_solutions) (f secure_solutions)))
+            (x "non-nil exit code")
+            (run_validation
+              type_proofs
+              (r validators)
+              (r unsafe_solutions)
+              (r secure_solutions)
+              (c (f TYPES_LEFT) COMPLETED_TYPES)
+              (c
+                (r TYPES_LEFT)
+                conditions
+              )
             )
           )
         )
@@ -285,6 +290,7 @@
       ()
       (run_validation
         type_proofs
+        validators
         unsafe_solutions
         secure_solutions
         ()
