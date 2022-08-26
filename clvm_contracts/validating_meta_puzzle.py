@@ -3,8 +3,10 @@ import hashlib
 
 from typing import List, Optional, Tuple
 
+from chia.types.blockchain_format.coin import Coin
 from chia.types.blockchain_format.program import Program
 from chia.types.blockchain_format.sized_bytes import bytes32
+from chia.types.coin_spend import CoinSpend
 from chia.util.ints import uint64
 
 from clvm_contracts.load_clvm import load_clvm
@@ -57,18 +59,23 @@ class LineageProof:
 
 
 @dataclasses.dataclass(frozen=True)
-class SecuredInformation:
-    type_additions: List[Tuple[Program, Program]]
-    type_removals: List[Optional[Tuple[Program, Program]]]
-    secure_solutions: List[Program]
+class TypeProof:
+    puzzle_hash: bytes32
+    inner_hash: bytes32
+    type_hashes: List[bytes32]
 
     def as_program(self) -> Program:
-        return Program.to(
-            [self.type_additions, self.type_removals, self.secure_solutions]
-        )
+        return Program.to([self.puzzle_hash, self.inner_hash, self.type_hashes])
 
-    def get_tree_hash(self) -> bytes32:
-        return self.as_program().get_tree_hash()
+
+@dataclasses.dataclass(frozen=True)
+class TypeChange:
+    type: AssetType
+    puzzle: Program
+    solution: Program
+
+    def as_program(self) -> Program:
+        return Program.to((self.puzzle, self.solution))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -89,36 +96,101 @@ class VMP:
     def get_types_hash(self) -> bytes32:
         return Program.to([t.as_program() for t in self.types]).get_tree_hash()
 
-    def get_type_proof(self, types_to_prove: List[AssetType]) -> Program:
+    def get_type_proof(self, types_to_prove: List[AssetType]) -> TypeProof:
         type_list = self.types
         trailing_hash = None
         while len(type_list) > 0 and type_list[-1] not in types_to_prove:
             if trailing_hash is None:
                 trailing_hash = Program.to(None).get_tree_hash()
-            trailing_hash = sha256(bytes([2]), type_list[-1].get_tree_hash(), trailing_hash)
+            trailing_hash = sha256(
+                bytes([2]), type_list[-1].get_tree_hash(), trailing_hash
+            )
             type_list = type_list[:-1]
         proof = Program.to(trailing_hash)
         while len(type_list) > 0:
             proof = Program.to(type_list[-1].get_tree_hash()).cons(proof)
             type_list = type_list[:-1]
-        return Program.to([self.get_tree_hash(), self.inner_puzzle.get_tree_hash(), proof])
+        return TypeProof(self.get_tree_hash(), self.inner_puzzle.get_tree_hash(), proof)
 
-    def solve(
+
+class VMPSpend:
+    def __init__(
         self,
-        inner_solution: Program,
-        lineage_proof: Optional[LineageProof],
-        unsafe_solutions: List[Program],
-        secured_information: SecuredInformation,
-        type_proofs: Optional[List[Program]] = None,
-    ) -> Program:
+        coin: Coin,
+        puzzle: VMP,
+        lineage_proof: Optional[LineageProof] = None,
+        type_proofs: List[TypeProof] = [],
+        unsafe_solutions: Optional[List[Program]] = None,
+        type_additions: List[TypeChange] = [],
+        type_removals: Optional[List[TypeChange]] = None,
+        secure_solutions: Optional[List[Program]] = None,
+    ) -> None:
+        self.coin = coin
+        self.puzzle = puzzle
+        self.lineage_proof = lineage_proof
+        self.type_proofs = type_proofs
+        self.unsafe_solutions = unsafe_solutions
+        self.type_additions = type_additions
+        self.type_removals = type_removals
+        self.secure_solutions = secure_solutions
+
+    def name(self) -> None:
+        return self.coin.name()
+
+    def _types_after_additions(self) -> List[AssetType]:
+        new_types: List[AssetType] = [add.type for add in self.type_additions]
+        new_types.reverse()  # simulates recursive prepending
+        return [*new_types, *self.puzzle.types]
+
+    def _align_type_removals(self) -> List[Program]:
+        removable_type_hashes: List[bytes32] = [typ.get_tree_hash() for typ in self._types_after_additions()]
+        type_removals_dict: Dict[bytes32, TypeChange] = {}
+        if self.type_removals is not None:
+            type_removals_dict = {rem.type.get_tree_hash(): rem for rem in self.type_removals}
+        type_removals_solution: List[Program] = []
+        for type_hash in removable_type_hashes:
+            if type_hash in type_removals_dict:
+                type_removals_solution.append(type_removals_dict[type_hash].as_program())
+            else:
+                type_removals_solution.append(Program.to(None))
+
+        return type_removals_solution
+
+    @property
+    def types(self) -> List[AssetType]:
+        all_types: List[AssetType] = self._types_after_additions()
+        removed_types: List[AssetType] = [] if self.type_removals is None else [rem.type for rem in self.type_removals]
+        return [typ for typ in all_types if typ not in removed_types]
+
+    def __len__(self) -> int:
+        return len(self.types)
+
+    def _secured_information(self) -> Program:
         return Program.to(
             [
-                inner_solution,
-                None if lineage_proof is None else lineage_proof.as_program(),
-                type_proofs,
-                [typ.pre_validator for typ in self.types],
-                [typ.validator for typ in self.types],
-                unsafe_solutions,
-                secured_information.as_program(),
+                [add.as_program() for add in self.type_additions],
+                self._align_type_removals(),
+                [None] * len(self)
+                if self.secure_solutions is None
+                else self.secure_solutions,
             ]
         )
+
+    def security_hash(self) -> bytes32:
+        return self._secured_information().get_tree_hash()
+
+    def to_coin_spend(self, inner_solution: Program) -> CoinSpend:
+        solution = Program.to(
+            [
+                inner_solution,
+                None if self.lineage_proof is None else self.lineage_proof.as_program(),
+                [proof.as_program() for proof in self.type_proofs],
+                [typ.pre_validator for typ in self.types],
+                [typ.validator for typ in self.types],
+                [None] * len(self)
+                if self.unsafe_solutions is None
+                else self.unsafe_solutions,
+                self._secured_information(),
+            ]
+        )
+        return CoinSpend(self.coin, self.puzzle.construct(), solution)

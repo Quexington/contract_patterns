@@ -179,7 +179,10 @@
               (c (r TYPES) conditions)
             )
         )
-        (c NEW_TYPES conditions)
+        (assert (not TYPES)
+          ; then
+          (c NEW_TYPES conditions)
+        )
     )
   )
 

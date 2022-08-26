@@ -15,8 +15,10 @@ from clvm_contracts.validating_meta_puzzle import (
     AssetType,
     LineageProof,
     NAMESPACE_PREFIX,
-    SecuredInformation,
+    TypeProof,
+    TypeChange,
     VMP,
+    VMPSpend,
 )
 
 ACS = Program.to(1)
@@ -45,27 +47,20 @@ async def test_basic_lifecycle():
 
         # Create a solution adding it to the vmp
         launcher_solution = Program.to((basic_type.as_program().rest(), None))
-        secured_info = SecuredInformation(
-            [(LAUNCHER, launcher_solution)],
-            [None],
-            [None],
+        basic_spend = VMPSpend(
+            vmp_coin,
+            empty_vmp,
+            type_additions=[TypeChange(basic_type, LAUNCHER, launcher_solution)],
         )
         add_basic_type_bundle = SpendBundle(
             [
-                CoinSpend(
-                    vmp_coin,
-                    empty_vmp.construct(),
-                    basic_vmp.solve(
-                        Program.to(
-                            [
-                                [51, ACS_PH, vmp_coin.amount],
-                                [1, secured_info.get_tree_hash()],
-                            ]
-                        ),
-                        None,
-                        [None],
-                        secured_info,
-                    ),
+                basic_spend.to_coin_spend(
+                    Program.to(
+                        [
+                            [51, ACS_PH, vmp_coin.amount],
+                            [1, basic_spend.security_hash()],
+                        ]
+                    )
                 )
             ],
             G2Element(),
@@ -77,7 +72,7 @@ async def test_basic_lifecycle():
         lineage_proof = LineageProof(
             vmp_coin.parent_coin_info,
             empty_vmp.get_types_hash(),
-            ACS_PH,
+            empty_vmp.inner_puzzle.get_tree_hash(),
             vmp_coin.amount,
         )
         vmp_coin: Coin = (
@@ -87,30 +82,26 @@ async def test_basic_lifecycle():
         )[0].coin
 
         # Now let's test some failure cases
-        secured_info = SecuredInformation(
-            [],
-            [None],
-            [None],
-        )
         # Create banned announcements from the inner_puzzle
-        for opcode in (60,62):
+        for opcode in (60, 62):
+            illegal_innerpuz_announcement_spend = VMPSpend(
+                vmp_coin,
+                basic_vmp,
+                lineage_proof=lineage_proof,
+            )
             illegal_innerpuz_announcement_bundle = SpendBundle(
                 [
-                    CoinSpend(
-                        vmp_coin,
-                        basic_vmp.construct(),
-                        basic_vmp.solve(
-                            Program.to(
+                    illegal_innerpuz_announcement_spend.to_coin_spend(
+                        Program.to(
+                            [
+                                [51, ACS_PH, vmp_coin.amount],
                                 [
-                                    [51, ACS_PH, vmp_coin.amount],
-                                    [1, secured_info.get_tree_hash()],
-                                    [opcode, NAMESPACE_PREFIX + bytes32([1] * 32)],
-                                ]
-                            ),
-                            lineage_proof,
-                            [None],
-                            secured_info,
-                        ),
+                                    1,
+                                    illegal_innerpuz_announcement_spend.security_hash(),
+                                ],
+                                [opcode, NAMESPACE_PREFIX + bytes32([1] * 32)],
+                            ]
+                        )
                     )
                 ],
                 G2Element(),
@@ -119,32 +110,30 @@ async def test_basic_lifecycle():
                 illegal_innerpuz_announcement_bundle.coin_spends[
                     0
                 ].puzzle_reveal.to_program().run(
-                    illegal_innerpuz_announcement_bundle.coin_spends[0].solution.to_program()
+                    illegal_innerpuz_announcement_bundle.coin_spends[
+                        0
+                    ].solution.to_program()
                 )
 
         # Now let's test banned announcements from the pre-validator
-        for opcode in (60,62):
-            bad_secured_info = SecuredInformation(
-                [],
-                [None],
-                [[[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]]],
+        for opcode in (60, 62):
+            illegal_pre_val_announcement_spend = VMPSpend(
+                vmp_coin,
+                basic_vmp,
+                lineage_proof=lineage_proof,
+                secure_solutions=[
+                    Program.to([[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]])
+                ],
             )
             illegal_pre_val_announcement_bundle = SpendBundle(
                 [
-                    CoinSpend(
-                        vmp_coin,
-                        basic_vmp.construct(),
-                        basic_vmp.solve(
-                            Program.to(
-                                [
-                                    [51, ACS_PH, vmp_coin.amount],
-                                    [1, bad_secured_info.get_tree_hash()],
-                                ]
-                            ),
-                            lineage_proof,
-                            [None],
-                            bad_secured_info,
-                        ),
+                    illegal_pre_val_announcement_spend.to_coin_spend(
+                        Program.to(
+                            [
+                                [51, ACS_PH, vmp_coin.amount],
+                                [1, illegal_pre_val_announcement_spend.security_hash()],
+                            ]
+                        )
                     )
                 ],
                 G2Element(),
@@ -153,32 +142,34 @@ async def test_basic_lifecycle():
                 illegal_pre_val_announcement_bundle.coin_spends[
                     0
                 ].puzzle_reveal.to_program().run(
-                    illegal_pre_val_announcement_bundle.coin_spends[0].solution.to_program()
+                    illegal_pre_val_announcement_bundle.coin_spends[
+                        0
+                    ].solution.to_program()
                 )
 
         # Try to create a bad announcement while removing the type
-        for opcode in (60,62):
-            bad_secured_info = SecuredInformation(
-                [],
-                [[[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]]],
-                [],
+        for opcode in (60, 62):
+            illegal_remover_announcement_spend = VMPSpend(
+                vmp_coin,
+                basic_vmp,
+                lineage_proof=lineage_proof,
+                type_removals=[
+                    TypeChange(
+                        basic_type,
+                        REMOVER,
+                        Program.to([[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]]),
+                    )
+                ],
             )
             illegal_remover_announcement_bundle = SpendBundle(
                 [
-                    CoinSpend(
-                        vmp_coin,
-                        basic_vmp.construct(),
-                        basic_vmp.solve(
-                            Program.to(
-                                [
-                                    [51, ACS_PH, vmp_coin.amount],
-                                    [1, bad_secured_info.get_tree_hash()],
-                                ]
-                            ),
-                            lineage_proof,
-                            [None],
-                            bad_secured_info,
-                        ),
+                    illegal_remover_announcement_spend.to_coin_spend(
+                        Program.to(
+                            [
+                                [51, ACS_PH, vmp_coin.amount],
+                                [1, illegal_remover_announcement_spend.security_hash()],
+                            ]
+                        )
                     )
                 ],
                 G2Element(),
@@ -187,32 +178,27 @@ async def test_basic_lifecycle():
                 illegal_remover_announcement_bundle.coin_spends[
                     0
                 ].puzzle_reveal.to_program().run(
-                    illegal_remover_announcement_bundle.coin_spends[0].solution.to_program()
+                    illegal_remover_announcement_bundle.coin_spends[
+                        0
+                    ].solution.to_program()
                 )
 
         # Now let's try to honestly remove the type
-        removal_secured_info = SecuredInformation(
-            [],
-            [(REMOVER, None)],
-            [],
+        remover_spend = VMPSpend(
+            vmp_coin,
+            basic_vmp,
+            lineage_proof=lineage_proof,
+            type_removals=[TypeChange(basic_type, REMOVER, Program.to(None))],
         )
         remover_bundle = SpendBundle(
             [
-                CoinSpend(
-                    vmp_coin,
-                    basic_vmp.construct(),
-                    basic_vmp.solve(
-                        Program.to(
-                            [
-                                [51, ACS_PH, vmp_coin.amount],
-                                [1, removal_secured_info.get_tree_hash()],
-                            ]
-                        ),
-                        lineage_proof,
-                        [None],
-                        removal_secured_info,
-                        type_proofs=[basic_vmp.get_type_proof([basic_type])],
-                    ),
+                remover_spend.to_coin_spend(
+                    Program.to(
+                        [
+                            [51, ACS_PH, vmp_coin.amount],
+                            [1, remover_spend.security_hash()],
+                        ]
+                    )
                 )
             ],
             G2Element(),
