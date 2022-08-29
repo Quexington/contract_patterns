@@ -10,7 +10,7 @@ from chia.types.coin_spend import CoinSpend
 from chia.types.mempool_inclusion_status import MempoolInclusionStatus
 from chia.types.spend_bundle import SpendBundle
 
-from clvm_contracts.boilerplate.basic import BasicType, LAUNCHER, REMOVER
+from clvm_contracts.boilerplate.basic import BasicType
 from clvm_contracts.validating_meta_puzzle import (
     AssetType,
     LineageProof,
@@ -46,11 +46,10 @@ async def test_basic_lifecycle():
         basic_vmp = VMP(ACS, [basic_type])
 
         # Create a solution adding it to the vmp
-        launcher_solution = Program.to((basic_type.as_program().rest(), None))
         basic_spend = VMPSpend(
             vmp_coin,
             empty_vmp,
-            type_additions=[TypeChange(basic_type, LAUNCHER, launcher_solution)],
+            type_additions=[BasicType.launch(basic_type, conditions=Program.to(None))],
         )
         add_basic_type_bundle = SpendBundle(
             [
@@ -154,10 +153,11 @@ async def test_basic_lifecycle():
                 basic_vmp,
                 lineage_proof=lineage_proof,
                 type_removals=[
-                    TypeChange(
+                    BasicType.remove(
                         basic_type,
-                        REMOVER,
-                        Program.to([[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]]),
+                        conditions=Program.to(
+                            [[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]]
+                        ),
                     )
                 ],
             )
@@ -188,7 +188,12 @@ async def test_basic_lifecycle():
             vmp_coin,
             basic_vmp,
             lineage_proof=lineage_proof,
-            type_removals=[TypeChange(basic_type, REMOVER, Program.to(None))],
+            type_removals=[
+                BasicType.remove(
+                    basic_type,
+                    conditions=Program.to(None),
+                )
+            ],
         )
         remover_bundle = SpendBundle(
             [
