@@ -118,6 +118,7 @@ class VMPSpend:
         self,
         coin: Coin,
         puzzle: VMP,
+        inner_solution: Program = Program.to(None),
         lineage_proof: Optional[LineageProof] = None,
         type_proofs: List[TypeProof] = [],
         unsafe_solutions: Optional[List[Program]] = None,
@@ -127,6 +128,7 @@ class VMPSpend:
     ) -> None:
         self.coin = coin
         self.puzzle = puzzle
+        self.inner_solution = inner_solution
         self.lineage_proof = lineage_proof
         self.type_proofs = type_proofs
         self.unsafe_solutions = unsafe_solutions
@@ -189,10 +191,10 @@ class VMPSpend:
     def security_hash(self) -> bytes32:
         return self._secured_information().get_tree_hash()
 
-    def to_coin_spend(self, inner_solution: Program) -> CoinSpend:
+    def to_coin_spend(self) -> CoinSpend:
         solution = Program.to(
             [
-                inner_solution,
+                self.inner_solution,
                 None if self.lineage_proof is None else self.lineage_proof.as_program(),
                 [proof.as_program() for proof in self.type_proofs],
                 [typ.pre_validator for typ in self.types],

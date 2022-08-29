@@ -51,19 +51,13 @@ async def test_basic_lifecycle():
             empty_vmp,
             type_additions=[BasicType.launch(basic_type, conditions=Program.to(None))],
         )
-        add_basic_type_bundle = SpendBundle(
+        basic_spend.inner_solution = Program.to(
             [
-                basic_spend.to_coin_spend(
-                    Program.to(
-                        [
-                            [51, ACS_PH, vmp_coin.amount],
-                            [1, basic_spend.security_hash()],
-                        ]
-                    )
-                )
-            ],
-            G2Element(),
+                [51, ACS_PH, vmp_coin.amount],
+                [1, basic_spend.security_hash()],
+            ]
         )
+        add_basic_type_bundle = SpendBundle([basic_spend.to_coin_spend()], G2Element())
         result = await sim_client.push_tx(add_basic_type_bundle)
         await sim.farm_block()
         assert result == (MempoolInclusionStatus.SUCCESS, None)
@@ -88,21 +82,18 @@ async def test_basic_lifecycle():
                 basic_vmp,
                 lineage_proof=lineage_proof,
             )
-            illegal_innerpuz_announcement_bundle = SpendBundle(
+            illegal_innerpuz_announcement_spend.inner_solution = Program.to(
                 [
-                    illegal_innerpuz_announcement_spend.to_coin_spend(
-                        Program.to(
-                            [
-                                [51, ACS_PH, vmp_coin.amount],
-                                [
-                                    1,
-                                    illegal_innerpuz_announcement_spend.security_hash(),
-                                ],
-                                [opcode, NAMESPACE_PREFIX + bytes32([1] * 32)],
-                            ]
-                        )
-                    )
-                ],
+                    [51, ACS_PH, vmp_coin.amount],
+                    [
+                        1,
+                        illegal_innerpuz_announcement_spend.security_hash(),
+                    ],
+                    [opcode, NAMESPACE_PREFIX + bytes32([1] * 32)],
+                ]
+            )
+            illegal_innerpuz_announcement_bundle = SpendBundle(
+                [illegal_innerpuz_announcement_spend.to_coin_spend()],
                 G2Element(),
             )
             with pytest.raises(ValueError, match="clvm raise"):
@@ -124,17 +115,14 @@ async def test_basic_lifecycle():
                     Program.to([[opcode, NAMESPACE_PREFIX + bytes32([1] * 32)]])
                 ],
             )
-            illegal_pre_val_announcement_bundle = SpendBundle(
+            illegal_pre_val_announcement_spend.inner_solution = Program.to(
                 [
-                    illegal_pre_val_announcement_spend.to_coin_spend(
-                        Program.to(
-                            [
-                                [51, ACS_PH, vmp_coin.amount],
-                                [1, illegal_pre_val_announcement_spend.security_hash()],
-                            ]
-                        )
-                    )
-                ],
+                    [51, ACS_PH, vmp_coin.amount],
+                    [1, illegal_pre_val_announcement_spend.security_hash()],
+                ]
+            )
+            illegal_pre_val_announcement_bundle = SpendBundle(
+                [illegal_pre_val_announcement_spend.to_coin_spend()],
                 G2Element(),
             )
             with pytest.raises(ValueError, match="clvm raise"):
@@ -161,17 +149,14 @@ async def test_basic_lifecycle():
                     )
                 ],
             )
-            illegal_remover_announcement_bundle = SpendBundle(
+            illegal_remover_announcement_spend.inner_solution = Program.to(
                 [
-                    illegal_remover_announcement_spend.to_coin_spend(
-                        Program.to(
-                            [
-                                [51, ACS_PH, vmp_coin.amount],
-                                [1, illegal_remover_announcement_spend.security_hash()],
-                            ]
-                        )
-                    )
-                ],
+                    [51, ACS_PH, vmp_coin.amount],
+                    [1, illegal_remover_announcement_spend.security_hash()],
+                ]
+            )
+            illegal_remover_announcement_bundle = SpendBundle(
+                [illegal_remover_announcement_spend.to_coin_spend()],
                 G2Element(),
             )
             with pytest.raises(ValueError, match="clvm raise"):
@@ -195,17 +180,14 @@ async def test_basic_lifecycle():
                 )
             ],
         )
-        remover_bundle = SpendBundle(
+        remover_spend.inner_solution = Program.to(
             [
-                remover_spend.to_coin_spend(
-                    Program.to(
-                        [
-                            [51, ACS_PH, vmp_coin.amount],
-                            [1, remover_spend.security_hash()],
-                        ]
-                    )
-                )
-            ],
+                [51, ACS_PH, vmp_coin.amount],
+                [1, remover_spend.security_hash()],
+            ]
+        )
+        remover_bundle = SpendBundle(
+            [remover_spend.to_coin_spend()],
             G2Element(),
         )
         result = await sim_client.push_tx(remover_bundle)
