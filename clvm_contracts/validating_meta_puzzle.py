@@ -143,14 +143,20 @@ class VMPSpend:
         return [*new_types, *self.puzzle.types]
 
     def _align_type_removals(self) -> List[Program]:
-        removable_type_hashes: List[bytes32] = [typ.get_tree_hash() for typ in self._types_after_additions()]
+        removable_type_hashes: List[bytes32] = [
+            typ.get_tree_hash() for typ in self._types_after_additions()
+        ]
         type_removals_dict: Dict[bytes32, TypeChange] = {}
         if self.type_removals is not None:
-            type_removals_dict = {rem.type.get_tree_hash(): rem for rem in self.type_removals}
+            type_removals_dict = {
+                rem.type.get_tree_hash(): rem for rem in self.type_removals
+            }
         type_removals_solution: List[Program] = []
         for type_hash in removable_type_hashes:
             if type_hash in type_removals_dict:
-                type_removals_solution.append(type_removals_dict[type_hash].as_program())
+                type_removals_solution.append(
+                    type_removals_dict[type_hash].as_program()
+                )
             else:
                 type_removals_solution.append(Program.to(None))
 
@@ -159,7 +165,11 @@ class VMPSpend:
     @property
     def types(self) -> List[AssetType]:
         all_types: List[AssetType] = self._types_after_additions()
-        removed_types: List[AssetType] = [] if self.type_removals is None else [rem.type for rem in self.type_removals]
+        removed_types: List[AssetType] = (
+            []
+            if self.type_removals is None
+            else [rem.type for rem in self.type_removals]
+        )
         return [typ for typ in all_types if typ not in removed_types]
 
     def __len__(self) -> int:

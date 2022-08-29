@@ -42,7 +42,11 @@ def compile_clvm_in_lock(full_path, output, search_paths):
     treated_include_paths = list(map(translate_path, search_paths))
     res = compile_clvm_rust(str(full_path), str(output), treated_include_paths)
 
-    if "CLVM_TOOLS" in os.environ and os.environ["CLVM_TOOLS"] == "check" and compile_clvm_py is not None:
+    if (
+        "CLVM_TOOLS" in os.environ
+        and os.environ["CLVM_TOOLS"] == "check"
+        and compile_clvm_py is not None
+    ):
         # Simple helper to read the compiled output
         def sha256file(f):
             import hashlib
@@ -68,11 +72,15 @@ def compile_clvm_in_lock(full_path, output, search_paths):
 
 
 def compile_clvm(full_path, output, search_paths=[]):
-    with Lockfile.create(pathlib.Path(tempfile.gettempdir()) / "clvm_compile" / full_path.name):
+    with Lockfile.create(
+        pathlib.Path(tempfile.gettempdir()) / "clvm_compile" / full_path.name
+    ):
         compile_clvm_in_lock(full_path, output, search_paths)
 
 
-def load_serialized_clvm(clvm_filename, package_or_requirement=__name__) -> SerializedProgram:
+def load_serialized_clvm(
+    clvm_filename, package_or_requirement=__name__
+) -> SerializedProgram:
     """
     This function takes a .clvm file in the given package and compiles it to a
     .clvm.hex file if the .hex file is missing or older than the .clvm file, then
@@ -86,23 +94,34 @@ def load_serialized_clvm(clvm_filename, package_or_requirement=__name__) -> Seri
     try:
         if pkg_resources.resource_exists(package_or_requirement, clvm_filename):
             # Establish whether the size is zero on entry
-            full_path = pathlib.Path(pkg_resources.resource_filename(package_or_requirement, clvm_filename))
+            full_path = pathlib.Path(
+                pkg_resources.resource_filename(package_or_requirement, clvm_filename)
+            )
             output = full_path.parent / hex_filename
-            compile_clvm(full_path, output, search_paths=[
-                full_path.parent,
-                "clvm_contracts.include"
-            ])
+            compile_clvm(
+                full_path,
+                output,
+                search_paths=[full_path.parent, "clvm_contracts.include"],
+            )
 
     except NotImplementedError:
         # pyinstaller doesn't support `pkg_resources.resource_exists`
         # so we just fall through to loading the hex clvm
         pass
 
-    clvm_hex = pkg_resources.resource_string(package_or_requirement, hex_filename).decode("utf8")
+    clvm_hex = pkg_resources.resource_string(
+        package_or_requirement, hex_filename
+    ).decode("utf8")
     assert len(clvm_hex.strip()) != 0
     clvm_blob = bytes.fromhex(clvm_hex)
     return SerializedProgram.from_bytes(clvm_blob)
 
 
 def load_clvm(clvm_filename, package_or_requirement=__name__) -> Program:
-    return Program.from_bytes(bytes(load_serialized_clvm(clvm_filename, package_or_requirement=package_or_requirement)))
+    return Program.from_bytes(
+        bytes(
+            load_serialized_clvm(
+                clvm_filename, package_or_requirement=package_or_requirement
+            )
+        )
+    )

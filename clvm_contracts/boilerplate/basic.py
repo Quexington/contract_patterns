@@ -13,9 +13,8 @@ PRE_VALIDATOR = load_clvm(
 VALIDATOR = load_clvm(
     "validator.clsp", package_or_requirement="clvm_contracts.boilerplate"
 )
-REMOVER = load_clvm(
-    "remover.clsp", package_or_requirement="clvm_contracts.boilerplate"
-)
+REMOVER = load_clvm("remover.clsp", package_or_requirement="clvm_contracts.boilerplate")
+
 
 class BasicType:
     @staticmethod
