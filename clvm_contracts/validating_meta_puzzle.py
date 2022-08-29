@@ -131,10 +131,10 @@ class VMPSpend:
         self.inner_solution = inner_solution
         self.lineage_proof = lineage_proof
         self.type_proofs = type_proofs
-        self.unsafe_solutions = unsafe_solutions
         self.type_additions = type_additions
         self.type_removals = type_removals
-        self.secure_solutions = secure_solutions
+        self.unsafe_solutions = [None] * len(self) if unsafe_solutions is None else unsafe_solutions
+        self.secure_solutions = [None] * len(self) if secure_solutions is None else secure_solutions
 
     def name(self) -> None:
         return self.coin.name()
@@ -182,9 +182,7 @@ class VMPSpend:
             [
                 [add.as_program() for add in self.type_additions],
                 self._align_type_removals(),
-                [None] * len(self)
-                if self.secure_solutions is None
-                else self.secure_solutions,
+                self.secure_solutions,
             ]
         )
 
@@ -199,9 +197,7 @@ class VMPSpend:
                 [proof.as_program() for proof in self.type_proofs],
                 [typ.pre_validator for typ in self.types],
                 [typ.validator for typ in self.types],
-                [None] * len(self)
-                if self.unsafe_solutions is None
-                else self.unsafe_solutions,
+                self.unsafe_solutions,
                 self._secured_information(),
             ]
         )
