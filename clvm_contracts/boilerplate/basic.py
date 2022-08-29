@@ -1,7 +1,9 @@
+from typing import List
+
 from chia.types.blockchain_format.program import Program
 
 from clvm_contracts.load_clvm import load_clvm
-from clvm_contracts.validating_meta_puzzle import AssetType, TypeChange
+from clvm_contracts.validating_meta_puzzle import AssetType, TypeChange, VMPSpend
 
 LAUNCHER = load_clvm(
     "launcher.clsp", package_or_requirement="clvm_contracts.boilerplate"
@@ -42,3 +44,7 @@ class BasicType:
             REMOVER,
             kwargs["conditions"],
         )
+
+    @staticmethod
+    def solve(spends: List[VMPSpend]) -> List[VMPSpend]:
+        return spends
