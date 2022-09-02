@@ -11,7 +11,7 @@ from chia.types.mempool_inclusion_status import MempoolInclusionStatus
 from chia.types.spend_bundle import SpendBundle
 
 from clvm_contracts.boilerplate.basic import BasicType
-from clvm_contracts.strict_fungibility.cat import CATType
+from clvm_contracts.strict_fungibility import CATType
 from clvm_contracts.validating_meta_puzzle import (
     AssetType,
     LineageProof,
