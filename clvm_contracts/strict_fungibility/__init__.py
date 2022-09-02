@@ -106,10 +106,11 @@ class CATType:
                     [
                         previous_spend.coin.name(),
                         coin_as_list(spend.coin),
-                        next_spend.coin.name(),
+                        coin_as_list(next_spend.coin),
                         prev_subtotal,
                         subtotal_dict[typ.launcher_hash],
                     ]
                 )
+                spend.type_proofs.append(next_spend.puzzle.get_type_proof([]))
 
         return spends

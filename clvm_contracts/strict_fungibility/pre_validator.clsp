@@ -21,7 +21,13 @@
                     this_amount
                 )
             )
-            next_coin_id
+            (@ next_coin_info
+                (
+                    next_parent_id
+                    next_puzzle_hash
+                    next_amount
+                )
+            )
             prev_subtotal
             this_subtotal
         )
@@ -36,7 +42,8 @@
   (include utility_macros.clib)
   (include vmp.clib)
 
-  (assert (= VALIDATOR_HASH validator_hash)
+  (assert (= VALIDATOR_HASH validator_hash) (is_puzzle_a_vmp next_puzzle_hash type_proofs)
+    ; then
     (c
       environment
       (list
@@ -49,7 +56,7 @@
         )
         (list ASSERT_COIN_ANNOUNCEMENT
           (sha256
-            next_coin_id
+            (calculate_coin_id next_parent_id next_puzzle_hash next_amount)
             (namespace_announcement
               pre_validator_hash
               (sha256tree (list launcher_hash (calculate_coin_id this_parent_id this_puzhash this_amount) this_subtotal))

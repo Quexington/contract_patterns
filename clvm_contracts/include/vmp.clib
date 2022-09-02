@@ -4,6 +4,16 @@
     (concat "namespaces" namespace data)
   )
 
+  (defun is_puzzle_a_vmp (puzzle_hash type_proofs)
+    (if type_proofs
+        (if (= puzzle_hash (f (f type_proofs)))
+            1
+            (check_hash_type puzzle_hash type_hash (r type_proofs))
+        )
+        ()
+    )
+  )
+
   (defun check_hash_type (puzzle_hash type_hash type_proofs)
     (if type_proofs
         (if (= puzzle_hash (f (f type_proofs)))
