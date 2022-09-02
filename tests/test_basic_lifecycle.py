@@ -21,6 +21,8 @@ from clvm_contracts.validating_meta_puzzle import (
     VMPSpend,
 )
 
+from tests.cost_logger import CostLogger
+
 ACS = Program.to(1)
 ACS_PH = ACS.get_tree_hash()
 
@@ -29,6 +31,7 @@ ACS_PH = ACS.get_tree_hash()
 async def test_basic_lifecycle():
     sim = await SpendSim.create()
     try:
+        logger = CostLogger()
         sim_client = SimClient(sim)
         await sim.farm_block()
 
@@ -61,6 +64,7 @@ async def test_basic_lifecycle():
         result = await sim_client.push_tx(add_basic_type_bundle)
         await sim.farm_block()
         assert result == (MempoolInclusionStatus.SUCCESS, None)
+        logger.add_cost("Add basic type", add_basic_type_bundle)
 
         lineage_proof = LineageProof(
             vmp_coin.parent_coin_info,
@@ -193,6 +197,7 @@ async def test_basic_lifecycle():
         result = await sim_client.push_tx(remover_bundle)
         await sim.farm_block()
         assert result == (MempoolInclusionStatus.SUCCESS, None)
+        logger.add_cost("Remove basic type", add_basic_type_bundle)
 
         # Assert that the VMP was cleared from the new coin
         acs_coin = (
@@ -201,6 +206,8 @@ async def test_basic_lifecycle():
             )
         )[0].coin
         assert acs_coin.puzzle_hash == ACS_PH
+
+        logger.log_cost_statistics()
 
     finally:
         await sim.close()

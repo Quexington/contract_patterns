@@ -21,6 +21,8 @@ from clvm_contracts.validating_meta_puzzle import (
     VMPSpend,
 )
 
+from tests.cost_logger import CostLogger
+
 ACS = Program.to(1)
 ACS_PH = ACS.get_tree_hash()
 
@@ -29,6 +31,7 @@ ACS_PH = ACS.get_tree_hash()
 async def test_basic_lifecycle():
     sim = await SpendSim.create()
     try:
+        logger = CostLogger()
         sim_client = SimClient(sim)
         await sim.farm_block()
 
@@ -70,6 +73,8 @@ async def test_basic_lifecycle():
         result = await sim_client.push_tx(add_cat_type_bundle)
         await sim.farm_block()
         assert result == (MempoolInclusionStatus.SUCCESS, None)
+        logger.add_cost("CAT addition", add_cat_type_bundle)
+        logger.log_cost_statistics()
 
     finally:
         await sim.close()
