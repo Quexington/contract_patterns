@@ -34,7 +34,7 @@ class BasicType:
         return TypeChange(
             typ,
             LAUNCHER,
-            Program.to((typ.as_program().rest(), kwargs["conditions"])),
+            Program.to([(typ.as_program().rest(), kwargs["conditions"])]),
         )
 
     @staticmethod

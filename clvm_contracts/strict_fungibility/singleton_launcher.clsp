@@ -1,1 +1,16 @@
-(mod (ID) (include condition_codes.clib) (list (list ASSERT_MY_COIN_ID ID)))
+(mod
+(
+  ID
+  _
+  type
+  conditions
+)
+  (include condition_codes.clib)
+  (c
+    type
+    (c
+      (list ASSERT_MY_COIN_ID ID)
+      conditions
+    )
+  )
+)

@@ -177,3 +177,44 @@ class NFTType:
             NFT_PRE_VALIDATOR,
             NFT_VALIDATOR,
         )
+
+
+class SingletonType:
+    @staticmethod
+    def new(
+        coin_id: bytes32,
+        remover_hash: bytes32,
+        enivronment: Program,
+    ) -> AssetType:
+        return AssetType(
+            SINGLETON_LAUNCHER.curry(coin_id).get_tree_hash(),
+            enivronment,
+            NFT_PRE_VALIDATOR,
+            NFT_VALIDATOR,
+            remover_hash,
+        )
+
+    @staticmethod
+    def launch(typ: AssetType, **kwargs) -> TypeChange:
+        return TypeChange(
+            typ,
+            SINGLETON_LAUNCHER.curry(kwargs["coin_id"]),
+            Program.to([typ.as_program().rest(), kwargs["conditions"]]),
+        )
+
+    @staticmethod
+    def remove(typ: AssetType, **kwargs) -> TypeChange:
+        return TypeChange(
+            typ,
+            kwargs["remover"],
+            kwargs["remover_solution"],
+        )
+
+    @staticmethod
+    def solve(spends: List[VMPSpend]) -> List[VMPSpend]:
+        return solve_fungible_type(
+            spends,
+            lambda c: 1,
+            NFT_PRE_VALIDATOR,
+            NFT_VALIDATOR,
+        )

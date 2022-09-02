@@ -143,7 +143,7 @@
           (r type_additions)
           conditions
           (sha256tree (f (f type_additions)))
-          (a (f (f type_additions)) (list type_proofs (r (f type_additions))))
+          (a (f (f type_additions)) (c type_proofs (r (f type_additions))))
         )
         (c TYPES conditions)
     )
