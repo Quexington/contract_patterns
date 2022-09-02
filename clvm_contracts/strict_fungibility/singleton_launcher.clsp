@@ -1,0 +1,1 @@
+(mod (ID) (include condition_codes.clib) (list (list ASSERT_MY_COIN_ID ID)))

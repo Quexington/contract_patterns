@@ -11,7 +11,7 @@ from chia.types.mempool_inclusion_status import MempoolInclusionStatus
 from chia.types.spend_bundle import SpendBundle
 
 from clvm_contracts.boilerplate.basic import BasicType
-from clvm_contracts.strict_fungibility import CATType
+from clvm_contracts.strict_fungibility import NFTType
 from clvm_contracts.validating_meta_puzzle import (
     AssetType,
     LineageProof,
@@ -28,7 +28,7 @@ ACS_PH = ACS.get_tree_hash()
 
 
 @pytest.mark.asyncio
-async def test_cat_lifecycle():
+async def test_nft_lifecycle():
     sim = await SpendSim.create()
     try:
         logger = CostLogger()
@@ -46,34 +46,34 @@ async def test_cat_lifecycle():
 
         # Construct the most basic AssetType
         basic_type = BasicType.new()
-        cat_type = CATType.new(
+        nft_type = NFTType.new(
             basic_type.launcher_hash, basic_type.remover_hash, basic_type.environment
         )
-        cat_vmp = VMP(ACS, [cat_type])
+        nft_vmp = VMP(ACS, [nft_type])
 
         # Create a solution adding it to the vmp
-        add_cat_type_spend = VMPSpend(
+        add_nft_type_spend = VMPSpend(
             vmp_coin,
             empty_vmp,
-            type_additions=[BasicType.launch(cat_type, conditions=Program.to(None))],
+            type_additions=[BasicType.launch(nft_type, conditions=Program.to(None))],
         )
-        solved_add_cat_type_spend = CATType.solve([add_cat_type_spend])[0]
-        solved_add_cat_type_spend.inner_solution = Program.to(
+        solved_add_nft_type_spend = NFTType.solve([add_nft_type_spend])[0]
+        solved_add_nft_type_spend.inner_solution = Program.to(
             [
                 [51, ACS_PH, vmp_coin.amount],
-                [1, solved_add_cat_type_spend.security_hash()],
+                [1, solved_add_nft_type_spend.security_hash()],
             ]
         )
-        add_cat_type_bundle = SpendBundle(
+        add_nft_type_bundle = SpendBundle(
             [
-                solved_add_cat_type_spend.to_coin_spend()
+                solved_add_nft_type_spend.to_coin_spend()
             ],
             G2Element(),
         )
-        result = await sim_client.push_tx(add_cat_type_bundle)
+        result = await sim_client.push_tx(add_nft_type_bundle)
         await sim.farm_block()
         assert result == (MempoolInclusionStatus.SUCCESS, None)
-        logger.add_cost("CAT addition", add_cat_type_bundle)
+        logger.add_cost("NFT addition", add_nft_type_bundle)
         logger.log_cost_statistics()
 
     finally:
