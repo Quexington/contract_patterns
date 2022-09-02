@@ -5,7 +5,7 @@ from chia.types.blockchain_format.sized_bytes import bytes32
 from chia.types.blockchain_format.program import Program
 
 from clvm_contracts.load_clvm import load_clvm
-from clvm_contracts.validating_meta_puzzle import AssetType, TypeChange, VMPSpend, get_type_proof
+from clvm_contracts.validating_meta_puzzle import AssetType, TypeChange, VMPSpend
 
 PRE_VALIDATOR = load_clvm(
     "pre_validator.clsp", package_or_requirement="clvm_contracts.strict_fungibility"
