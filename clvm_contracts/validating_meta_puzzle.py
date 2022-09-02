@@ -1,7 +1,7 @@
 import dataclasses
 import hashlib
 
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from chia.types.blockchain_format.coin import Coin
 from chia.types.blockchain_format.program import Program
@@ -43,6 +43,23 @@ class AssetType:
 
     def get_tree_hash(self) -> bytes32:
         return self.as_program().get_tree_hash()
+
+
+def is_type(cls: Any, possible_type: AssetType, ignores: List[str]=[]) -> bool:
+    for typ in cls.types:
+        if typ.launcher_hash == possible_type.launcher_hash or "launcher_hash" in ignores:
+            if typ.environment == possible_type.environment or "environment" in ignores:
+                if typ.pre_validator == possible_type.pre_validator or "pre_validator" in ignores:
+                    if typ.validator == possible_type.validator or "validator" in ignores:
+                        if typ.remover_hash == possible_type.remover_hash or "remover_hash" in ignores:
+                            return True
+    return False
+
+
+def index_of(cls: Any, type_to_find: AssetType) -> int:
+    for i, typ in enumerate(cls.types):
+        if typ == type_to_find:
+            return i
 
 
 @dataclasses.dataclass(frozen=True)
@@ -111,6 +128,11 @@ class VMP:
             proof = Program.to(type_list[-1].get_tree_hash()).cons(proof)
             type_list = type_list[:-1]
         return TypeProof(self.get_tree_hash(), self.inner_puzzle.get_tree_hash(), proof)
+    def is_type(self, possible_type: AssetType, ignores: List[str]=[]) -> bool:
+        return is_type(self, possible_type, ignores)
+
+    def index_of(self, type_to_find: AssetType) -> int:
+        return index_of(self, type_to_find)
 
 
 class VMPSpend:
@@ -202,3 +224,9 @@ class VMPSpend:
             ]
         )
         return CoinSpend(self.coin, self.puzzle.construct(), solution)
+
+    def is_type(self, possible_type: AssetType, ignores: List[str]=[]) -> bool:
+        return is_type(self, possible_type, ignores)
+
+    def index_of(self, type_to_find: AssetType) -> int:
+        return index_of(self, type_to_find)

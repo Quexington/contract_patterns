@@ -1,0 +1,62 @@
+(mod
+  (
+      VALIDATOR_HASH
+      (@ TYPE
+        (
+            launcher_hash
+            environment
+            pre_validator_hash
+            validator_hash
+            remover_hash
+        )
+      )
+      type_proofs
+      (@ unsafe_solution
+        (
+            prev_coin_id
+            (@ this_coin_info
+                (
+                    this_parent_id
+                    this_puzhash
+                    this_amount
+                )
+            )
+            next_coin_id
+            prev_subtotal
+            this_subtotal
+        )
+      )
+      secure_solution
+  )
+
+  (include *standard-cl-21*)
+
+  (include condition_codes.clib)
+  (include curry_and_treehash.clib)
+  (include utility_macros.clib)
+  (include vmp.clib)
+
+  (assert (= VALIDATOR_HASH validator_hash)
+    (c
+      environment
+      (list
+        (list ASSERT_MY_COIN_ID (calculate_coin_id this_parent_id this_puzhash this_amount))
+        (list CREATE_COIN_ANNOUNCEMENT
+          (namespace_announcement
+            pre_validator_hash
+            (sha256tree (list launcher_hash prev_coin_id prev_subtotal))
+          )
+        )
+        (list ASSERT_COIN_ANNOUNCEMENT
+          (sha256
+            next_coin_id
+            (namespace_announcement
+              pre_validator_hash
+              (sha256tree (list launcher_hash (calculate_coin_id this_parent_id this_puzhash this_amount) this_subtotal))
+            )
+          )
+        )
+      )
+    )
+  )
+)

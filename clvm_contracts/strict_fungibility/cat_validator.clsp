@@ -1,0 +1,33 @@
+(mod
+  (
+      TYPE
+      type_proofs
+      conditions
+      (@ unsafe_solution
+        (
+            prev_coin_id
+            this_coin_info
+            next_coin_id
+            prev_subtotal
+            this_subtotal
+        )
+      )
+      secure_solution
+  )
+
+  (include *standard-cl-21*)
+
+  (include condition_codes.clib)
+
+  (defun sum_of_coins (conditions)
+    (if conditions
+        (+
+          (if (= (f (f conditions)) CREATE_COIN) (f (r (r (f conditions)))) 0)
+          (sum_of_coins (r conditions))
+        )
+        0
+    )
+  )
+
+  (not (= this_subtotal (+ prev_subtotal (- (sum_of_coins conditions) (f (r (r this_coin_info)))))))
+)

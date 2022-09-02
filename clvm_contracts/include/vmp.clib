@@ -7,7 +7,7 @@
   (defun check_hash_type (puzzle_hash type_hash type_proofs)
     (if type_proofs
         (if (= puzzle_hash (f (f type_proofs)))
-            (if (in type_hash (f (r (f type_proofs))))
+            (if (in type_hash (f (r (r (f type_proofs)))))
                 1
                 (check_hash_type puzzle_hash type_hash (r type_proofs))
             )
@@ -16,6 +16,7 @@
         (x)
     )
   )
+
   (defun in (item item_list)
     (if item_list
         (if (= item (f item_list))
@@ -24,5 +25,14 @@
         )
         ()
     )
+  )
+
+  (defun-inline calculate_type_hash_from_hashes (launcher_hash environment_hash pre_validator_hash validator_hash remover_hash)
+    (sha256 2 launcher_hash
+      (sha256 2 environment_hash
+        (sha256 2 pre_validator_hash
+          (sha256 2 validator_hash
+            (sha256 2 remover_hash
+              (sha256 1 ()))))))
   )
 )
