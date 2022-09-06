@@ -5,7 +5,7 @@ from chia.types.blockchain_format.sized_bytes import bytes32
 from chia.types.blockchain_format.program import Program
 
 from clvm_contracts.load_clvm import load_clvm
-from clvm_contracts.validating_meta_puzzle import AssetType, TypeChange, VMPSpend
+from clvm_contracts.validating_meta_puzzle import AssetType, TypeChange, VMPSpend, VMP_MOD_HASH
 
 PRE_VALIDATOR = load_clvm(
     "pre_validator.clsp", package_or_requirement="clvm_contracts.strict_fungibility"
@@ -18,12 +18,16 @@ NFT_VALIDATOR = load_clvm(
     "nft_validator.clsp",
     package_or_requirement="clvm_contracts.strict_fungibility",
 )
+CAT_PRE_VALIDATOR = PRE_VALIDATOR.curry(CAT_VALIDATOR.get_tree_hash())
+NFT_PRE_VALIDATOR = PRE_VALIDATOR.curry(NFT_VALIDATOR.get_tree_hash())
 SINGLETON_LAUNCHER = load_clvm(
     "singleton_launcher.clsp",
     package_or_requirement="clvm_contracts.strict_fungibility",
 )
-CAT_PRE_VALIDATOR = PRE_VALIDATOR.curry(CAT_VALIDATOR.get_tree_hash())
-NFT_PRE_VALIDATOR = PRE_VALIDATOR.curry(NFT_VALIDATOR.get_tree_hash())
+P2_SINGLETON = load_clvm(
+    "p2_singleton.clsp",
+    package_or_requirement="clvm_contracts.strict_fungibility",
+)
 
 
 def previous_index(i: int, length: int) -> int:
@@ -217,4 +221,28 @@ class SingletonType:
             lambda c: 1,
             NFT_PRE_VALIDATOR,
             NFT_VALIDATOR,
+        )
+
+    @staticmethod
+    def p2(**kwargs) -> Program:
+        return P2_SINGLETON.curry(
+            VMP_MOD_HASH,
+            NFT_PRE_VALIDATOR.get_tree_hash(),
+            kwargs["launcher_hash"],
+        )
+
+    @staticmethod
+    def solve_p2(**kwargs) -> Program:
+        return Program.to(
+            [
+                [
+                    kwargs["vmp_spend"].coin.parent_coin_info,
+                    kwargs["vmp_spend"].puzzle.get_types_hash(),
+                    kwargs["vmp_spend"].puzzle.inner_puzzle.get_tree_hash(),
+                    kwargs["vmp_spend"].coin.amount,
+                ],
+                kwargs["coin"].name(),
+                kwargs["puzzle"],
+                kwargs["solution"],
+            ]
         )

@@ -1,0 +1,62 @@
+(mod
+  (
+      VMP_MOD_HASH
+      PRE_VALIDATOR_HASH
+      LAUNCHER_HASH
+      (
+        parent_id
+        types_hash
+        inner_hash
+        amount
+      )
+      my_id
+      puzzle_reveal
+      solution
+  )
+
+  (include condition_codes.clib)
+  (include curry_and_treehash.clib)
+  (include utility_macros.clib)
+  (include vmp.clib)
+
+  (defun main
+    (
+      PRE_VALIDATOR_HASH
+      LAUNCHER_HASH
+      coin_id
+      inner_hash
+      my_id
+      announced_hash
+      conditions
+    )
+
+    (c
+      (list ASSERT_COIN_ANNOUNCEMENT (sha256 coin_id (namespace_announcement 0x0000000000000000000000000000000000000000000000000000000000000000 (sha256tree (c my_id announced_hash)))))
+      (c
+        (list ASSERT_COIN_ANNOUNCEMENT (sha256 coin_id (namespace_announcement PRE_VALIDATOR_HASH LAUNCHER_HASH)))
+        (c
+          (list ASSERT_MY_COIN_ID my_id)
+          conditions
+        )
+      )
+    )
+  )
+
+  (main
+    PRE_VALIDATOR_HASH
+    LAUNCHER_HASH
+    (calculate_coin_id
+      parent_id
+      (puzzle_hash_of_curried_function VMP_MOD_HASH
+        inner_hash
+        types_hash
+        (sha256tree VMP_MOD_HASH)
+      )
+      amount
+    )
+    inner_hash
+    my_id
+    (sha256tree puzzle_reveal)
+    (a puzzle_reveal solution)
+  )
+)

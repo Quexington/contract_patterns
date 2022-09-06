@@ -8,7 +8,7 @@
     (if type_proofs
         (if (= puzzle_hash (f (f type_proofs)))
             1
-            (check_hash_type puzzle_hash type_hash (r type_proofs))
+            (is_puzzle_a_vmp puzzle_hash (r type_proofs))
         )
         ()
     )

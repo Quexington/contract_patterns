@@ -54,6 +54,12 @@
             (sha256tree (list launcher_hash prev_coin_id prev_subtotal))
           )
         )
+        (list CREATE_COIN_ANNOUNCEMENT
+          (namespace_announcement
+            pre_validator_hash
+            launcher_hash
+          )
+        )
         (list ASSERT_COIN_ANNOUNCEMENT
           (sha256
             (calculate_coin_id next_parent_id next_puzzle_hash next_amount)

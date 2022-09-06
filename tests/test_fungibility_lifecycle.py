@@ -14,6 +14,7 @@ from clvm_contracts.boilerplate.basic import BasicType
 from clvm_contracts.strict_fungibility import CATType, NFTType, SingletonType
 from clvm_contracts.validating_meta_puzzle import (
     AssetType,
+    INNER_PUZZLE_PREFIX,
     LineageProof,
     NAMESPACE_PREFIX,
     TypeChange,
@@ -65,9 +66,7 @@ async def test_cat_lifecycle():
             ]
         )
         add_cat_type_bundle = SpendBundle(
-            [
-                solved_add_cat_type_spend.to_coin_spend()
-            ],
+            [solved_add_cat_type_spend.to_coin_spend()],
             G2Element(),
         )
         result = await sim_client.push_tx(add_cat_type_bundle)
@@ -118,9 +117,7 @@ async def test_nft_lifecycle():
             ]
         )
         add_nft_type_bundle = SpendBundle(
-            [
-                solved_add_nft_type_spend.to_coin_spend()
-            ],
+            [solved_add_nft_type_spend.to_coin_spend()],
             G2Element(),
         )
         result = await sim_client.push_tx(add_nft_type_bundle)
@@ -161,9 +158,15 @@ async def test_singleton_lifecycle():
         add_singleton_type_spend = VMPSpend(
             vmp_coin,
             empty_vmp,
-            type_additions=[SingletonType.launch(singleton_type, conditions=Program.to(None), coin_id=vmp_coin.name())],
+            type_additions=[
+                SingletonType.launch(
+                    singleton_type, conditions=Program.to(None), coin_id=vmp_coin.name()
+                )
+            ],
         )
-        solved_add_singleton_type_spend = SingletonType.solve([add_singleton_type_spend])[0]
+        solved_add_singleton_type_spend = SingletonType.solve(
+            [add_singleton_type_spend]
+        )[0]
         solved_add_singleton_type_spend.inner_solution = Program.to(
             [
                 [51, ACS_PH, vmp_coin.amount],
@@ -171,15 +174,86 @@ async def test_singleton_lifecycle():
             ]
         )
         add_singleton_type_bundle = SpendBundle(
-            [
-                solved_add_singleton_type_spend.to_coin_spend()
-            ],
+            [solved_add_singleton_type_spend.to_coin_spend()],
             G2Element(),
         )
         result = await sim_client.push_tx(add_singleton_type_bundle)
         await sim.farm_block()
         assert result == (MempoolInclusionStatus.SUCCESS, None)
         logger.add_cost("Singleton addition", add_singleton_type_bundle)
+
+        lineage_proof = LineageProof(
+            vmp_coin.parent_coin_info,
+            empty_vmp.get_types_hash(),
+            empty_vmp.inner_puzzle.get_tree_hash(),
+            vmp_coin.amount,
+        )
+        vmp_coin = (
+            await sim_client.get_coin_records_by_puzzle_hash(
+                singleton_vmp.get_tree_hash(), include_spent_coins=False
+            )
+        )[0].coin
+
+        # Farm a p2_singleton
+        p2_singleton = SingletonType.p2(launcher_hash=singleton_type.launcher_hash)
+        await sim.farm_block(p2_singleton.get_tree_hash())
+        p2_singleton_coin: Coin = (
+            await sim_client.get_coin_records_by_puzzle_hash(
+                p2_singleton.get_tree_hash(), include_spent_coins=False
+            )
+        )[0].coin
+
+        # Spend a p2_singleton
+        p2_singleton_claim_spend = VMPSpend(
+            vmp_coin,
+            singleton_vmp,
+            lineage_proof=lineage_proof,
+        )
+        solved_p2_singleton_claim_spend = SingletonType.solve(
+            [p2_singleton_claim_spend]
+        )[0]
+        solved_p2_singleton_claim_spend.inner_solution = Program.to(
+            [
+                [51, ACS_PH, vmp_coin.amount],
+                [1, solved_p2_singleton_claim_spend.security_hash()],
+                [
+                    60,
+                    NAMESPACE_PREFIX
+                    + INNER_PUZZLE_PREFIX
+                    + Program.to((p2_singleton_coin.name(), ACS_PH)).get_tree_hash(),
+                ],
+            ]
+        )
+        UNIQUE_AMOUNT = 12345
+        p2_singleton_spend = CoinSpend(
+            p2_singleton_coin,
+            p2_singleton,
+            SingletonType.solve_p2(
+                vmp_spend=solved_p2_singleton_claim_spend,
+                coin=p2_singleton_coin,
+                puzzle=ACS,
+                solution=Program.to([[51, ACS_PH, UNIQUE_AMOUNT]]),
+            ),
+        )
+        p2_singleton_claim_bundle = SpendBundle(
+            [
+                solved_p2_singleton_claim_spend.to_coin_spend(),
+                p2_singleton_spend,
+            ],
+            G2Element(),
+        )
+        result = await sim_client.push_tx(p2_singleton_claim_bundle)
+        await sim.farm_block()
+        assert result == (MempoolInclusionStatus.SUCCESS, None)
+        logger.add_cost("P2 Singleton claim", add_singleton_type_bundle)
+
+        acs_coins = (
+            await sim_client.get_coin_records_by_puzzle_hash(
+                ACS_PH, include_spent_coins=False
+            )
+        )
+        assert len(list(c for c in acs_coins if c.coin.amount == UNIQUE_AMOUNT)) == 1
+
         logger.log_cost_statistics()
 
     finally:

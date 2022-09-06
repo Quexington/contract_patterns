@@ -15,7 +15,9 @@ from clvm_contracts.load_clvm import load_clvm
 VMP_MOD = load_clvm(
     "validating_meta_puzzle.clsp", package_or_requirement="clvm_contracts"
 )
+VMP_MOD_HASH = VMP_MOD.get_tree_hash()
 NAMESPACE_PREFIX = b"namespaces"
+INNER_PUZZLE_PREFIX = bytes([0]*32)
 
 
 def sha256(*args: bytes) -> bytes32:
